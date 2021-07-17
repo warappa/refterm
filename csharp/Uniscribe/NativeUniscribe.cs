@@ -11,6 +11,11 @@ namespace Refterm.Uniscribe
     using System;
     using System.Runtime.InteropServices;
 
+    public class Defaults
+    {
+        public static uint LOCALE_USER_DEFAULT = 0x0400;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct SCRIPT_CONTROL
     {
@@ -1607,7 +1612,7 @@ namespace Refterm.Uniscribe
         ///pss: SCRIPT_STATE*
         [DllImportAttribute("usp10.dll", EntryPoint = "ScriptApplyDigitSubstitution", CallingConvention = CallingConvention.StdCall)]
         public static extern int ScriptApplyDigitSubstitution(
-          [In] SCRIPT_DIGITSUBSTITUTE psds,
+          ref SCRIPT_DIGITSUBSTITUTE psds,
           out SCRIPT_CONTROL psc,
           out SCRIPT_STATE pss);
 
