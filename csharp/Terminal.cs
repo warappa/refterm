@@ -131,7 +131,7 @@ namespace Refterm
 
             //AppendOutput("\n"); // TODO(casey): Better line startup - this is here just to initialize the running cursor.
             Lines[0].StartingProps = RunningCursor.Props;
-            AppendOutput("Refterm v%u\n", Assembly.GetExecutingAssembly().GetName().Version);
+            AppendOutput($"Refterm v{Assembly.GetExecutingAssembly().GetName().Version}\n");
             AppendOutput("THIS IS \x1b[38;2;255;0;0m\x1b[5mNOT\x1b[0m A REAL \x1b[9mTERMINAL\x1b[0m.\r\n" +
                 "It is a reference renderer for demonstrating how to easily build relatively efficient terminal displays.\r\n" +
                 "\x1b[38;2;255;0;0m\x1b[5m\x1b[4mDO NOT\x1b[0m attempt to use this as your terminal, or you will be \x1b[2mvery\x1b[0m sad.\r\n"
@@ -145,13 +145,6 @@ namespace Refterm
             int MinTermSize = 512;
             int Width = MinTermSize;
             int Height = MinTermSize;
-
-            //LARGE_INTEGER Frequency, Time;
-            //QueryPerformanceFrequency(&Frequency);
-            //QueryPerformanceCounter(&Time);
-
-            //LARGE_INTEGER StartTime;
-            //QueryPerformanceCounter(&StartTime);
 
             char LastChar = '\0';
 
@@ -204,8 +197,8 @@ namespace Refterm
                 do
                 {
                     //int FastIn = UpdateTerminalBuffer(FastPipe);
-                    var SlowIn = UpdateTerminalBuffer(ChildProcess?.StandardOutput);
-                    var ErrIn = UpdateTerminalBuffer(ChildProcess?.StandardError);
+                    //var SlowIn = UpdateTerminalBuffer(ChildProcess?.StandardOutput);
+                    //var ErrIn = UpdateTerminalBuffer(ChildProcess?.StandardError);
 
                     //if (!SlowIn && (Legacy_ReadStdOut != INVALID_HANDLE_VALUE))
                     //{
@@ -230,9 +223,7 @@ namespace Refterm
                 // TODO(casey): Split RendererDraw into two!
                 // Update, and render, since we only need to update if we actually get new input.
 
-                //long BlinkTimer;
-                //QueryPerformanceCounter(&BlinkTimer);
-                //int Blink = ((1000 * (BlinkTimer.QuadPart - StartTime.QuadPart) / (BlinkMS * Frequency.QuadPart)) & 1);
+                var Blink = DateTime.UtcNow.Millisecond > BlinkMS;
                 if (Renderer.Device is null)
                 {
                     Renderer = AcquireD3D11Renderer(window, false);
@@ -240,7 +231,7 @@ namespace Refterm
                 }
                 if (Renderer.Device is not null)
                 {
-                    RendererDraw((uint)Width, (uint)Height, ScreenBuffer, /*Blink ? 0xffffffff :*/ 0xff222222);
+                    RendererDraw((uint)Width, (uint)Height, ScreenBuffer, Blink ? 0xffffffff : 0xff222222);
                 }
                 //++FrameIndex;
                 //++FrameCount;
@@ -295,6 +286,7 @@ namespace Refterm
 
             DWriteReleaseFont(GlyphGen);
             GlyphGen.DWriteFactory?.Dispose();
+            GlyphGen.DWriteFactory = null;
         }
 
         static void ReleaseD3D11RenderTargets(D3D11Renderer Renderer)
@@ -399,8 +391,6 @@ namespace Refterm
                         UnderlineMax = GlyphGen.FontHeight,
                     };
                     Mapped.Write(ConstData);
-
-                    //memcpy(Mapped.pData, &ConstData, sizeof(ConstData));
                 }
                 Renderer.DeviceContext.UnmapSubresource(Renderer.ConstantBuffer, 0);
 
@@ -732,7 +722,7 @@ namespace Refterm
                     // Putting something actually good in here would probably be a massive improvement.
 
                     // NOTE(casey): Scan for the next escape code (which Uniscribe helpfully totally fails to handle)
-                    SourceBufferRange SubRange = Range;
+                    SourceBufferRange SubRange = new SourceBufferRange(Range);
                     do
                     {
                         Range = ConsumeCount(Range, 1);
@@ -900,8 +890,8 @@ namespace Refterm
 
         void DWriteDrawText(GlyphGenerator GlyphGen, int StringLen, string String,
                                uint Left, uint Top, uint Right, uint Bottom,
-                               SharpDX.Direct2D1.RenderTarget RenderTarget,
-                               SharpDX.Direct2D1.SolidColorBrush FillBrush,
+                               RenderTarget RenderTarget,
+                               SolidColorBrush FillBrush,
                                float XScale, float YScale)
         {
             SharpDX.Mathematics.Interop.RawRectangleF Rect = new SharpDX.Mathematics.Interop.RawRectangleF();
@@ -911,13 +901,13 @@ namespace Refterm
             Rect.Right = (float)Right;
             Rect.Bottom = (float)Bottom;
 
-            RenderTarget.Transform = SharpDX.Matrix3x2.Scaling(XScale, YScale, new SharpDX.Vector2(0, 0));
+            RenderTarget.Transform = Matrix3x2.Scaling(XScale, YScale, new Vector2(0, 0));
 
             RenderTarget.BeginDraw();
             RenderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 0));
             RenderTarget.DrawText(String, StringLen, GlyphGen.TextFormat, Rect, FillBrush,
-                SharpDX.Direct2D1.DrawTextOptions.Clip | SharpDX.Direct2D1.DrawTextOptions.EnableColorFont,
-                SharpDX.Direct2D1.MeasuringMode.Natural);
+                DrawTextOptions.Clip | DrawTextOptions.EnableColorFont,
+                MeasuringMode.Natural);
             //RenderTarget.DrawEllipse(
             //                new SharpDX.Direct2D1.Ellipse
             //                {
@@ -1022,16 +1012,20 @@ namespace Refterm
             */
 
             //example_partitioner* Partitioner = Partitioner;
-            var sourceString = new string(UTF8Range.Data.ToArray());
-            var c = Encoding.Unicode.GetBytes(sourceString);
-            c.CopyTo(Partitioner.Expansion, 0);
+            var sourceString = new string(UTF8Range.Data.ToArray().TakeWhile(x => x != '\0').ToArray());
+            //var sourceBytes = UTF8Range.Data.ToArray().TakeWhile(x => x != '\0').ToArray();
+            var utf8Bytes = Encoding.UTF8.GetBytes(sourceString);
+            byte[] unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, utf8Bytes);
+            var unicodeString = Encoding.Unicode.GetString(unicodeBytes);
+            unicodeBytes.CopyTo(Partitioner.Expansion, 0);
 
             //var Count = MultiByteToWideChar(CP_UTF8, 0, UTF8Range.Data, (DWORD)UTF8Range.Count,
             //                                  Partitioner->Expansion, ArrayCount(Partitioner->Expansion));
             char[] Data = Partitioner.Expansion;
-            var Count = sourceString.Length;
+            var Count = unicodeString.Length;
 
-            Uniscribe.NativeMethods.ScriptItemize(sourceString, c.Length, Partitioner.Items.Length,
+            Uniscribe.NativeMethods.ScriptItemize(unicodeString, unicodeString.Length,
+                Partitioner.Items.Length,
                 ref Partitioner.UniControl,
                 ref Partitioner.UniState, Partitioner.Items, out var ItemCount);
 
@@ -1051,7 +1045,7 @@ namespace Refterm
                     StrCount = Items[1].iCharPos - Items[0].iCharPos;
                 }
 
-                var Str = new string(Data.AsSpan(Items[0].iCharPos));
+                var Str = new string(unicodeString.AsSpan(Items[0].iCharPos, StrCount));
 
                 var IsComplex = Uniscribe.NativeMethods.ScriptIsComplex(Str, StrCount, Uniscribe.Constants.SIC_COMPLEX) == Uniscribe.Constants.S_OK;
                 Uniscribe.NativeMethods.ScriptBreak(Str, StrCount, ref Items[0].a, Partitioner.Log);
@@ -1636,7 +1630,7 @@ namespace Refterm
 
             CommandLine[CommandLineCount] = '\0';
             int ParamStart = 0;
-            while (ParamStart < CommandLineCount)
+            while (ParamStart <= CommandLineCount)
             {
                 if (CommandLine[ParamStart] == ' ') break;
                 ++ParamStart;
@@ -1664,11 +1658,11 @@ namespace Refterm
             if (command == "status")
             {
                 RunningCursor.ClearProps();
-                AppendOutput("RefTerm v%u\n", Assembly.GetExecutingAssembly().GetName().Version);
-                AppendOutput("Size: %u x %u\n", ScreenBuffer.DimX, ScreenBuffer.DimY);
+                AppendOutput($"RefTerm {Assembly.GetExecutingAssembly().GetName().Version}\n");
+                AppendOutput($"Size: {ScreenBuffer.DimX} x {ScreenBuffer.DimY}\n");
                 //AppendOutput("Fast pipe: %s\n", EnableFastPipe ? "ON" : "off");
-                AppendOutput("Font: %S %u\n", RequestedFontName, RequestedFontHeight);
-                AppendOutput("Line Wrap: %s\n", LineWrap ? "ON" : "off");
+                AppendOutput($"Font: {RequestedFontName} {RequestedFontHeight}\n");
+                AppendOutput($"Line Wrap: {(LineWrap ? "ON" : "off")}\n");
                 //AppendOutput("Debug: %s\n", DebugHighlighting ? "ON" : "off");
                 //AppendOutput("Throttling: %s\n", !NoThrottle ? "ON" : "off");
             }
@@ -1724,6 +1718,8 @@ namespace Refterm
                     var line = Lines[i];
                     line.Clear();
                 }
+
+                ScrollBackBuffer.Clear();
             }
             else if ((command == "exit") ||
                     (command == "quit"))
@@ -1744,10 +1740,12 @@ namespace Refterm
             {
                 //char ProcessName[ArrayCount(Terminal->CommandLine) + 1];
                 //char ProcessCommandLine[ArrayCount(Terminal->CommandLine) + 1];
-                var processName = $"{new string(A.AsSpan())}.exe";
-                var processCommandLine = $"{processName} {new string(B.Span)}";
+                var processName = $"{command}.exe";
 
-                if (!ExecuteSubProcess(processName, processCommandLine))
+                var param = new string(CommandLine.AsSpan(ParamStart).ToArray().TakeWhile(x => x != '\0').ToArray());
+                var processCommandLine = $"{processName} {param}";
+
+                if (!ExecuteSubProcess(processName, param))
                 {
                     processName = "c:\\Windows\\System32\\cmd.exe";
                     processCommandLine = $"cmd.exe /c {new string(A.AsSpan())}.exe {new string(B.Span)}";
@@ -1792,13 +1790,27 @@ namespace Refterm
                 RedirectStandardInput = true,
                 FileName = ProcessName,
                 Arguments = ProcessCommandLine,
-                WorkingDirectory = ProcessDir
+                WorkingDirectory = ProcessDir,
             };
+            process.EnableRaisingEvents = true;
 
-            if (!process.Start())
+            try
+            {
+                if (!process.Start())
+                {
+                    return false;
+                }
+            }
+            catch
             {
                 return false;
             }
+
+            process.BeginOutputReadLine();
+
+            process.OutputDataReceived += Process_OutputDataReceived;
+            process.Exited += Process_Exited;
+
             ChildProcess = process;
 
             return true;
@@ -1846,6 +1858,21 @@ namespace Refterm
             //return Result;
         }
 
+        private void Process_Exited(object sender, EventArgs e)
+        {
+            CloseProcess();
+        }
+
+        private void Process_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(e.Data))
+            {
+                return;
+            }
+
+            AppendOutput(e.Data+'\n');
+        }
+
         void KillProcess()
         {
             if (ChildProcess is not null)
@@ -1857,6 +1884,12 @@ namespace Refterm
 
         void CloseProcess()
         {
+            if (ChildProcess is not null)
+            {
+                ChildProcess.OutputDataReceived -= Process_OutputDataReceived;
+                ChildProcess.Exited -= Process_Exited;
+            }
+
             ChildProcess?.Dispose(); ;
             //CloseHandle(Legacy_WriteStdIn);
             //CloseHandle(Legacy_ReadStdOut);

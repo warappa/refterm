@@ -19,5 +19,16 @@ namespace Refterm
         public int AbsoluteFilledSize;
 
         public char[] InternalData { get; internal set; }
+
+        internal void Clear()
+        {
+            AbsoluteFilledSize = 0;
+            RelativePoint = 0;
+
+            for (var i = 0; i < InternalData.Length; i++)
+            {
+                InternalData[i] = '\0';
+            }
+        }
     }
 }

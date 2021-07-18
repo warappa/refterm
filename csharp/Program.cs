@@ -55,6 +55,12 @@ namespace Refterm
             }
             else
             {
+                if (type == WndMsg.WM_SYSCOMMAND && 
+                    m.WParam.ToInt32() == (int)SysCommands.SC_CLOSE)
+                {
+                    NativeWindows.PostThreadMessage(terminalThreadId, (uint)WndMsg.WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+                }
+
                 base.WndProc(ref m);
             }
         }
