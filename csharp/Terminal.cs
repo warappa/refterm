@@ -695,19 +695,19 @@ namespace Refterm
                 char Peek = PeekToken(Range, 0);
                 if ((Peek == '\x1b') && AtEscape(Range))
                 {
-                    if (ParseEscape(Range, Cursor))
+                    if (ParseEscape(ref Range, Cursor))
                     {
                         CursorJumped = true;
                     }
                 }
                 else if (Peek == '\r')
                 {
-                    GetToken(Range);
+                    GetToken(ref Range);
                     Cursor.Position.X = 0;
                 }
                 else if (Peek == '\n')
                 {
-                    GetToken(Range);
+                    GetToken(ref Range);
                     AdvanceRow(Cursor.Position);
                 }
                 else if (ContainsComplexChars)
@@ -730,7 +730,7 @@ namespace Refterm
                     // Putting something actually good in here would probably be a massive improvement.
 
                     // NOTE(casey): Scan for the next escape code (which Uniscribe helpfully totally fails to handle)
-                    SourceBufferRange SubRange = new SourceBufferRange(Range);
+                    SourceBufferRange SubRange = Range;
                     do
                     {
                         Range = ConsumeCount(Range, 1);
@@ -748,7 +748,7 @@ namespace Refterm
                 {
                     // NOTE(casey): It's not an escape, and we know there are only simple characters on the line.
 
-                    char CodePoint = GetToken(Range);
+                    char CodePoint = GetToken(ref Range);
                     ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
 
                     //if (Cell is null)
@@ -1708,7 +1708,7 @@ namespace Refterm
             }
             else if (command == "fontsize")
             {
-                RequestedFontHeight = (int)ParseNumber(ParamRange);
+                RequestedFontHeight = (int)ParseNumber(ref ParamRange);
                 RefreshFont();
                 AppendOutput("Font height: %u\n", RequestedFontHeight);
             }
@@ -2011,14 +2011,14 @@ namespace Refterm
                 if (AtEscape(Range))
                 {
                     int FeedAt = Range.AbsoluteP;
-                    if (ParseEscape(Range, Cursor))
+                    if (ParseEscape(ref Range, Cursor))
                     {
                         LineFeed(FeedAt, FeedAt, Cursor.Props);
                     }
                 }
                 else
                 {
-                    char Token = GetToken(Range);
+                    char Token = GetToken(ref Range);
                     if (Token == '\n')
                     {
                         LineFeed(Range.AbsoluteP, Range.AbsoluteP, Cursor.Props);
@@ -2070,12 +2070,12 @@ namespace Refterm
             Lines[CurrentLineIndex].OnePastLastP = ToP;
         }
 
-        static bool ParseEscape(SourceBufferRange Range, CursorState Cursor)
+        static bool ParseEscape(ref SourceBufferRange Range, CursorState Cursor)
         {
             var MovedCursor = false;
 
-            GetToken(Range);
-            GetToken(Range);
+            GetToken(ref Range);
+            GetToken(ref Range);
 
             char Command = (char)0;
             uint ParamCount = 0;
@@ -2086,8 +2086,8 @@ namespace Refterm
                 char Token = PeekToken(Range, 0);
                 if (IsDigit(Token))
                 {
-                    Params[ParamCount++] = ParseNumber(Range);
-                    char Semi = GetToken(Range);
+                    Params[ParamCount++] = ParseNumber(ref Range);
+                    char Semi = GetToken(ref Range);
                     if (Semi != ';')
                     {
                         Command = Semi;
@@ -2096,7 +2096,7 @@ namespace Refterm
                 }
                 else
                 {
-                    Command = GetToken(Range);
+                    Command = GetToken(ref Range);
                 }
             }
 
@@ -2146,12 +2146,12 @@ namespace Refterm
             return Result;
         }
 
-        static uint ParseNumber(SourceBufferRange Range)
+        static uint ParseNumber(ref SourceBufferRange Range)
         {
             uint Result = 0;
             while (IsDigit(PeekToken(Range, 0)))
             {
-                char Token = GetToken(Range);
+                char Token = GetToken(ref Range);
                 Result = (uint)(10 * Result + (Token - '0'));
             }
             return Result;
@@ -2163,7 +2163,7 @@ namespace Refterm
             return Result;
         }
 
-        static char GetToken(SourceBufferRange Range)
+        static char GetToken(ref SourceBufferRange Range)
         {
             char Result = (char)0;
 
@@ -2196,7 +2196,7 @@ namespace Refterm
 
         static SourceBufferRange ConsumeCount(SourceBufferRange Source, int Count)
         {
-            SourceBufferRange Result = Source;
+            SourceBufferRange Result = new SourceBufferRange(Source);
 
             if (Count > Result.Count)
             {
