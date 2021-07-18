@@ -864,7 +864,8 @@ namespace Refterm
 
                 try
                 {
-                    Renderer.DeviceContext.CopySubresourceRegion(Renderer.GlyphTexture, 0, sourceBox, Renderer.GlyphTransfer, 0, X, Y, 0);
+                    Renderer.DeviceContext.CopySubresourceRegion(Renderer.GlyphTransfer, 0,
+                        sourceBox, Renderer.GlyphTexture, 0, X, Y, 0);
                 }
                 catch (Exception exc)
                 {
