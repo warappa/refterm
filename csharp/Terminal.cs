@@ -1,8 +1,10 @@
-﻿using SharpDX.Direct2D1;
+﻿using SharpDX;
+using SharpDX.Direct2D1;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.DirectWrite;
 using SharpDX.DXGI;
+using SharpDX.WIC;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -23,7 +25,7 @@ namespace Refterm
 
         const int LARGEST_AVAILABLE = int.MaxValue - 1;
 
-        public bool LineWrap { get; set; }
+        public bool LineWrap { get; set; } = true;
         public Process? ChildProcess { get; set; }
         public String StandardIn { get; set; }
         public String StandardOut { get; set; }
@@ -87,6 +89,7 @@ namespace Refterm
         {
             this.threadHandle = (IntPtr)NativeWindows.GetCurrentThreadId();
             this.window = window;
+            LineWrap = true;
 
             RunningCursor = new CursorState(this);
             ScreenBuffer = new TerminalBuffer(this);
@@ -95,12 +98,17 @@ namespace Refterm
 
             TextureWidth = 2048;
             TextureHeight = 2048;
-            TransferWidth = 1024;
-            TransferHeight = 512;
+            //TransferWidth = 1024;
+            //TransferHeight = 512;
+            TransferWidth = (uint)TextureWidth;
+            TransferHeight = (uint)TextureHeight;
             MaxWidth = 1024;
             MaxHeight = 1024;
 
-            Renderer = AcquireD3D11Renderer(window, false);
+            Renderer = AcquireD3D11Renderer(window, true);
+
+            Renderer.SetD3D11GlyphCacheDim(TextureWidth, TextureHeight);
+            Renderer.SetD3D11GlyphTransferDim(TransferWidth, TransferHeight);
 
             GlyphGen = AllocateGlyphGenerator(TransferWidth, TransferHeight, Renderer.GlyphTransferSurface);
             ScrollBackBuffer = AllocateSourceBuffer(PipeSize);
@@ -121,7 +129,8 @@ namespace Refterm
 
             NativeWindows.ShowWindow(window, NativeWindows.ShowWindowOption.SW_SHOWDEFAULT);
 
-            AppendOutput("\n"); // TODO(casey): Better line startup - this is here just to initialize the running cursor.
+            //AppendOutput("\n"); // TODO(casey): Better line startup - this is here just to initialize the running cursor.
+            Lines[0].StartingProps = RunningCursor.Props;
             AppendOutput("Refterm v%u\n", Assembly.GetExecutingAssembly().GetName().Version);
             AppendOutput("THIS IS \x1b[38;2;255;0;0m\x1b[5mNOT\x1b[0m A REAL \x1b[9mTERMINAL\x1b[0m.\r\n" +
                 "It is a reference renderer for demonstrating how to easily build relatively efficient terminal displays.\r\n" +
@@ -324,7 +333,7 @@ namespace Refterm
 
                     using (var Buffer = Renderer.SwapChain.GetBackBuffer<Texture2D>(0))
                     {
-
+                        
                         //hr = IDXGISwapChain_GetBuffer(Renderer.SwapChain, 0, &IID_ID3D11Texture2D, (void**)&Buffer);
                         //AssertHR(hr);
 
@@ -340,7 +349,15 @@ namespace Refterm
                             //hr = ID3D11Device_CreateRenderTargetView(Renderer.Device, (ID3D11Resource*)Buffer, 0, &Renderer.RenderTarget);
                             //AssertHR(hr);
 
-                            Renderer.DeviceContext.Rasterizer.SetViewport(0, 0, Width, Height);
+                            var ViewPort = new SharpDX.Mathematics.Interop.RawViewportF
+                            {
+                                X = 0,
+                                Y = 0,
+                                Width = (float)Width,
+                                Height = (float)Height
+                            };
+
+                            Renderer.DeviceContext.Rasterizer.SetViewports(new[] { ViewPort }, 1);
 
                             Renderer.DeviceContext.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
                         }
@@ -360,7 +377,7 @@ namespace Refterm
             if (Renderer.RenderView is not null ||
                 Renderer.RenderTarget is not null)
             {
-                var dataBox = Renderer.DeviceContext.MapSubresource(Renderer.ConstantBuffer, 0, SharpDX.Direct3D11.MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out var Mapped);
+                var dataBox = Renderer.DeviceContext.MapSubresource(Renderer.ConstantBuffer, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out var Mapped);
                 //hr = ID3D11DeviceContext_Map(Renderer.DeviceContext, (ID3D11Resource*)Renderer.ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
                 //AssertHR(hr);
                 {
@@ -368,9 +385,9 @@ namespace Refterm
                     {
                         CellSize = new uint[] { GlyphGen.FontWidth, GlyphGen.FontHeight },
                         TermSize = new uint[] { Term.DimX, Term.DimY },
-                        TopLeftMargin = new uint[] { 8, 8 },
+                        TopLeftMargin = new uint[] { 0, 0 },
                         BlinkModulate = BlinkModulate,
-                        MarginColor = 0x000c0c0c,
+                        MarginColor = 0x99ff00ff,// 0x000c0c0c,
 
                         StrikeMin = GlyphGen.FontHeight / 2 - GlyphGen.FontHeight / 10,
                         StrikeMax = GlyphGen.FontHeight / 2 + GlyphGen.FontHeight / 10,
@@ -378,6 +395,7 @@ namespace Refterm
                         UnderlineMax = GlyphGen.FontHeight,
                     };
                     Mapped.Write(ConstData);
+
                     //memcpy(Mapped.pData, &ConstData, sizeof(ConstData));
                 }
                 Renderer.DeviceContext.UnmapSubresource(Renderer.ConstantBuffer, 0);
@@ -392,8 +410,8 @@ namespace Refterm
                     var BottomCellCount = Term.DimX * (Term.FirstLineY);
                     //Assert((TopCellCount + BottomCellCount) == (Term.DimX * Term.DimY));
 
-                    var termSpan = Term.Cells.AsSpan();
-                    var termSpanWindow = Term.Cells.AsSpan(
+                    var termCellsSpan = Term.Cells.AsSpan();
+                    var termCellsFirstCopy = Term.Cells.AsSpan(
                         (int)(Term.FirstLineY * Term.DimX),
                         (int)(TopCellCount));
 
@@ -401,11 +419,14 @@ namespace Refterm
                     {
                         var cellSpan =
                             new Span<RendererCell>(
-                            Mapped.DataPointer.ToPointer(),
+                            Cells.DataPointer.ToPointer(),
                             (int)Cells.Length / Marshal.SizeOf<RendererCell>());
 
-                        termSpanWindow.CopyTo(cellSpan);
-                        termSpan.Slice(0, (int)BottomCellCount).CopyTo(cellSpan.Slice((int)TopCellCount));
+                        var targetCellSpan = cellSpan.Slice( (int)TopCellCount);
+
+                        termCellsFirstCopy.CopyTo(cellSpan);
+
+                        termCellsSpan.Slice(0, (int)BottomCellCount).CopyTo(targetCellSpan);
                     }
                     //using (var pin = Term.Cells.AsMemory().Pin()) {
                     //    System.Buffer.MemoryCopy(pin.Pointer, 
@@ -440,17 +461,29 @@ namespace Refterm
                     //ID3D11DeviceContext_OMSetRenderTargets(Renderer.DeviceContext, 1, &Renderer.RenderTarget, 0);
 
                     Renderer.DeviceContext.PixelShader.SetConstantBuffers(0, 1, Renderer.ConstantBuffer);
-                    Renderer.DeviceContext.PixelShader.SetShaderResources(0, 1, Resources);
+                    Renderer.DeviceContext.PixelShader.SetShaderResources(0, Resources);
                     Renderer.DeviceContext.VertexShader.SetShader(Renderer.VertexShader, null, 0);
-                    //ID3D11DeviceContext_VSSetShader(Renderer.DeviceContext, Renderer.VertexShader, 0, 0);
                     Renderer.DeviceContext.PixelShader.SetShader(Renderer.PixelShader, null, 0);
-                    //ID3D11DeviceContext_PSSetShader(Renderer.DeviceContext, Renderer.PixelShader, 0, 0);
                     Renderer.DeviceContext.Draw(4, 0);
                 }
             }
 
             var Vsync = false;
             var presentResult = Renderer.SwapChain.Present(Vsync ? 1 : 0, PresentFlags.None);
+
+
+            if (false)
+            {
+
+                //var dev = new DeviceManager();
+                //dev.Initialize(96);
+                //using var a = Renderer.SwapChain.GetBackBuffer<Texture2D>(0);
+                //a.Save(File.OpenWrite(@"c:\Temp\buffer.jpg"), Renderer.Device, Renderer.DeviceContext1, new ImagingFactory2());
+
+                Renderer.GlyphTexture.Save(File.OpenWrite(@"c:\Temp\buffer.jpg"), Renderer.Device, Renderer.DeviceContext, new ImagingFactory2());
+            }
+
+
             //hr = IDXGISwapChain1_Present(Renderer.SwapChain, Vsync ? 1 : 0, 0);
             if ((presentResult == SharpDX.DXGI.ResultCode.DeviceReset) ||
                 (presentResult == SharpDX.DXGI.ResultCode.DeviceRemoved))
@@ -713,8 +746,9 @@ namespace Refterm
                     // NOTE(casey): It's not an escape, and we know there are only simple characters on the line.
 
                     char CodePoint = GetToken(Range);
-                    var Cell = GetCell(ScreenBuffer, Cursor.Position);
-                    if (Cell is not null)
+                    ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
+
+                    //if (Cell is null)
                     {
                         GpuGlyphIndex GPUIndex = new GpuGlyphIndex();
                         if (IsDirectCodepoint(CodePoint))
@@ -740,7 +774,14 @@ namespace Refterm
                             GPUIndex = State.GPUIndex;
                         }
 
-                        SetCellDirect(GPUIndex, Cursor.Props, Cell.Value);
+                        if (GPUIndex.Value != 31 &&
+                            GPUIndex.Value != 32 &&
+                            GPUIndex.Value != 1 &&
+                            GPUIndex.Value != 0)
+                        {
+
+                        }
+                        SetCellDirect(GPUIndex, Cursor.Props, ref Cell);
                     }
 
                     AdvanceColumn(Cursor.Position);
@@ -816,7 +857,18 @@ namespace Refterm
                     (int)((TileIndex + 1) * GlyphGen.FontWidth),
                     (int)GlyphGen.FontHeight, 1);
 
-                Renderer.DeviceContext.CopySubresourceRegion(Renderer.GlyphTexture, 0, sourceBox, Renderer.GlyphTransfer, 0, X, Y, 0);
+                try
+                {
+                    Renderer.DeviceContext.CopySubresourceRegion(Renderer.GlyphTexture, 0, sourceBox, Renderer.GlyphTransfer, 0, X, Y, 0);
+                }
+                catch (Exception exc)
+                {
+                    Console.WriteLine($"GPU index failed: {DestIndex.Value}");
+                }
+                finally
+                {
+                    var a = NativeWindows.GetLastError();
+                }
             }
         }
 
@@ -856,10 +908,11 @@ namespace Refterm
             RenderTarget.Transform = SharpDX.Matrix3x2.Scaling(XScale, YScale, new SharpDX.Vector2(0, 0));
 
             RenderTarget.BeginDraw();
-            RenderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 0));
+            RenderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(255, 0, 255, 0));
             RenderTarget.DrawText(String, StringLen, GlyphGen.TextFormat, Rect, FillBrush,
                 SharpDX.Direct2D1.DrawTextOptions.Clip | SharpDX.Direct2D1.DrawTextOptions.EnableColorFont,
                 SharpDX.Direct2D1.MeasuringMode.Natural);
+            RenderTarget.Flush();
             RenderTarget.EndDraw();
             //if (!SUCCEEDED(Error))
             //{
@@ -1031,8 +1084,8 @@ namespace Refterm
                         char CodePoint = Run[0];
                         if ((ThisCount == 1) && IsDirectCodepoint(CodePoint))
                         {
-                            var Cell = GetCell(ScreenBuffer, Cursor.Position);
-                            if (Cell is not null)
+                            ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
+                            //if (Cell is not null)
                             {
                                 GlyphProps Props = Cursor.Props;
                                 if (DebugHighlighting)
@@ -1040,7 +1093,7 @@ namespace Refterm
                                     Props.Background = 0x00800000;
                                 }
 
-                                SetCellDirect(ReservedTileTable[CodePoint - MinDirectCodepoint], Props, Cell.Value);
+                                SetCellDirect(ReservedTileTable[CodePoint - MinDirectCodepoint], Props, ref Cell);
                             }
 
                             AdvanceColumn(Cursor.Position);
@@ -1057,8 +1110,8 @@ namespace Refterm
                                 TileIndex < GlyphDim.TileCount;
                                 ++TileIndex)
                             {
-                                var Cell = GetCell(ScreenBuffer, Cursor.Position);
-                                if (Cell is not null)
+                                ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
+                                //if (Cell is not null)
                                 {
                                     GlyphHash TileHash = ComputeHashForTileIndex(RunHash, TileIndex);
                                     GlyphState State = FindGlyphEntryByHash(GlyphTable, TileHash);
@@ -1080,7 +1133,7 @@ namespace Refterm
                                         Props.Background = Segment ? 0x0008080u : 0x00000080u;
                                         Segment = !Segment;
                                     }
-                                    SetCellDirect(State.GPUIndex, Props, Cell.Value);
+                                    SetCellDirect(State.GPUIndex, Props, ref Cell);
                                 }
 
                                 AdvanceColumn(Cursor.Position);
@@ -1270,7 +1323,7 @@ namespace Refterm
             //            return State;
         }
 
-        static void SetCellDirect(GpuGlyphIndex GPUIndex, GlyphProps Props, RendererCell Dest)
+        static void SetCellDirect(GpuGlyphIndex GPUIndex, GlyphProps Props, ref RendererCell Dest)
         {
             Dest.GlyphIndex = GPUIndex.Value;
             var Foreground = Props.Foreground;
@@ -1297,9 +1350,9 @@ namespace Refterm
             return Result;
         }
 
-        RendererCell? GetCell(TerminalBuffer Buffer, Position Point)
+        ref RendererCell GetCell(TerminalBuffer Buffer, Position Point)
         {
-            return Buffer.GetCell(Point);
+            return ref Buffer.GetCell(Point);
         }
 
         void AdvanceColumn(Position Point)
@@ -1340,6 +1393,11 @@ namespace Refterm
                 Result.AbsoluteP = AbsoluteP;
                 Result.Count = (Buffer.AbsoluteFilledSize - AbsoluteP);
                 Result.Data = Buffer.Data.Slice(Buffer.DataSize + Buffer.RelativePoint - Result.Count);
+
+                if (Result.Count > Result.Data.Length)
+                {
+
+                }
 
                 if (Result.Count > Count)
                 {
@@ -1542,7 +1600,7 @@ namespace Refterm
                                                     Chars.Select(x => (byte)x).ToArray()));
                                             var nextSpan = CommandLine.AsSpan(CommandLineCount);
                                             command.CopyTo(nextSpan);
-                                            CommandLineCount += command.Length;
+                                            CommandLineCount += command.Length - 1;
                                         }
                                     }
                                     break;
@@ -1566,7 +1624,7 @@ namespace Refterm
             }
 
             char[] A = CommandLine;
-            var B = CommandLine.AsMemory(0..);
+            var B = CommandLine.AsMemory(ParamStart..);
             B.Span[0] = '\0';
             if (ParamStart < CommandLineCount)
             {
@@ -1815,6 +1873,8 @@ namespace Refterm
             var str = string.Format(Format, args);
             var used = str.Length;
 
+            str.AsSpan().CopyTo(Dest.Data.Span);
+
             Dest.Count = used;
             CommitWrite(ScrollBackBuffer, Dest.Count);
             ParseLines(Dest, RunningCursor);
@@ -1850,41 +1910,36 @@ namespace Refterm
 
                 var Data = Range.Data.Span;
                 var index = 0;
-                while (Count >= 16)
+                while (index < Count)
                 {
-                    for (var i = 0; i < 16; i++)
-                    {
-                        var c = Data[index + i];
-                        var testC = c == '\n';
-                        var testE = c == '\x1b';
-                        var testX = c == (char)0x80;
-                        var test = testC && testE;
+                    var c = Data[index];
+                    var testC = c == '\n';
+                    var testE = c == '\x1b';
+                    var testX = c == (char)0x80;
+                    var test = testC && testE;
 
 
-                        //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
-                        //__m128i TestC = _mm_cmpeq_epi8(Batch, Carriage);
-                        //__m128i TestE = _mm_cmpeq_epi8(Batch, Escape);
-                        //__m128i TestX = _mm_and_si128(Batch, Complex);
-                        //__m128i Test = _mm_or_si128(TestC, TestE);
-                        //int Check = _mm_movemask_epi8(Test);
-                        //if (Check)
-                        //{
-                        //    int Advance = _tzcnt_u32(Check);
-                        //    __m128i MaskX = _mm_loadu_si128((__m128i*)(OverhangMask + 16 - Advance));
-                        //    TestX = _mm_and_si128(MaskX, TestX);
-                        //    ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                        //    Count -= Advance;
-                        //    Data += Advance;
-                        //    break;
-                        //}
+                    //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
+                    //__m128i TestC = _mm_cmpeq_epi8(Batch, Carriage);
+                    //__m128i TestE = _mm_cmpeq_epi8(Batch, Escape);
+                    //__m128i TestX = _mm_and_si128(Batch, Complex);
+                    //__m128i Test = _mm_or_si128(TestC, TestE);
+                    //int Check = _mm_movemask_epi8(Test);
+                    //if (Check)
+                    //{
+                    //    int Advance = _tzcnt_u32(Check);
+                    //    __m128i MaskX = _mm_loadu_si128((__m128i*)(OverhangMask + 16 - Advance));
+                    //    TestX = _mm_and_si128(MaskX, TestX);
+                    //    ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
+                    //    Count -= Advance;
+                    //    Data += Advance;
+                    //    break;
+                    //}
 
-                        //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                        ContainsComplex |= testX;
+                    //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
+                    ContainsComplex |= testX;
 
-                    }
-                    Count -= 16;
-                    index += 16;
-
+                    index++;
                 }
 
                 //Range = ConsumeCount(Range, Data - Range.Data);
@@ -2180,7 +2235,7 @@ namespace Refterm
 
         static GpuGlyphIndex PackGlyphCachePoint(uint X, uint Y)
         {
-            GpuGlyphIndex Result =new GpuGlyphIndex { Value = (Y << 16) | X };
+            GpuGlyphIndex Result = new GpuGlyphIndex { Value = (Y << 16) | X };
             return Result;
         }
 
@@ -2194,6 +2249,10 @@ namespace Refterm
             GlyphTable Result = new GlyphTable();
             Result.Entries = new GlyphEntry[Params.EntryCount];
             Result.EntryCount = (uint)Result.Entries.Length;
+            for (var i = 0; i < Result.EntryCount; i++)
+            {
+                Result.Entries[i] = new GlyphEntry();
+            }
 
             var StartingTile = Params.ReservedTileCount;
             var X = StartingTile % Params.CacheTileCountInX;
@@ -2209,7 +2268,7 @@ namespace Refterm
                 }
 
                 GlyphEntry Entry = GetEntry(Result, EntryIndex);
-                
+
                 Entry.GPUIndex = PackGlyphCachePoint(X, Y);
 
                 Entry.FilledState = GlyphEntryState.None;
@@ -2280,7 +2339,7 @@ namespace Refterm
             //Assert(Params.CacheTileCountInX >= 1);
 
             var skipAmount = SkipZeroSlot ? 1u : 0;
-            
+
             var X = skipAmount;
             var Y = 0u;
             for (var EntryIndex = 0;
@@ -2427,7 +2486,7 @@ namespace Refterm
 
             //var m = new Memory<char>(accessor.SafeMemoryMappedViewHandle.);
 
-            result.InternalData = new char[dataSize];
+            result.InternalData = new char[dataSize * 2];
             result.Data = new Memory<char>(result.InternalData);
             result.DataSize = (int)dataSize;
 
@@ -2489,6 +2548,7 @@ namespace Refterm
             var constantBufferDesc = new BufferDescription
             {
                 SizeInBytes = Marshal.SizeOf<RendererConstBuffer>(),
+                StructureByteStride = Marshal.SizeOf<RendererConstBuffer>(),
                 Usage = ResourceUsage.Dynamic,
                 BindFlags = BindFlags.ConstantBuffer,
                 CpuAccessFlags = CpuAccessFlags.Write
@@ -2499,9 +2559,6 @@ namespace Refterm
             renderer.ComputeShader = new ComputeShader(renderer.Device, CssShaderBytes);
             renderer.PixelShader = new PixelShader(renderer.Device, PSShaderBytes);
             renderer.VertexShader = new VertexShader(renderer.Device, VSShaderBytes);
-
-            renderer.SetD3D11GlyphCacheDim(TextureWidth, TextureHeight);
-            renderer.SetD3D11GlyphTransferDim(TransferWidth, TransferHeight);
 
             return renderer;
         }
@@ -2524,7 +2581,7 @@ namespace Refterm
 
             var swapChainDesc = new SwapChainDescription1()
             {
-                Format = Format.R8G8B8A8_UNorm,
+                Format = Format.B8G8R8A8_UNorm,
                 SampleDescription = new SampleDescription(1, 0),
                 Usage = bufferUsage,
                 BufferCount = 2,

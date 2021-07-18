@@ -877,5 +877,8 @@ namespace Refterm
             /// <summary></summary>
             OEMClear = 0xFE
         }
+
+        [DllImport("kernel32.dll")]
+        public static extern uint GetLastError();
     }
 }

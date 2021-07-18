@@ -75,7 +75,7 @@ namespace Refterm
             };
 
             GlyphTransfer = new Texture2D(Device, textureDesc);
-            GlyphTransferView = new ShaderResourceView(Device, GlyphTexture);
+            GlyphTransferView = new ShaderResourceView(Device, GlyphTransfer);
             GlyphTransferSurface = GlyphTransfer.QueryInterface<Surface>();
 
             D2DAcquire(GlyphTransferSurface);
@@ -83,7 +83,7 @@ namespace Refterm
 
         private void D2DAcquire(Surface glyphTransferSurface)//, out SharpDX.Direct2D1.RenderTarget dWriteRenderTarget, ref SharpDX.Direct2D1.SolidColorBrush dWriteFillBrush)
         {
-            using (var factory = new SharpDX.Direct2D1.Factory(SharpDX.Direct2D1.FactoryType.SingleThreaded, SharpDX.Direct2D1.DebugLevel.Error))
+            using (var factory = new SharpDX.Direct2D1.Factory(SharpDX.Direct2D1.FactoryType.SingleThreaded, SharpDX.Direct2D1.DebugLevel.Warning))
             {
                 var renderTargetProperties = new SharpDX.Direct2D1.RenderTargetProperties
                 {

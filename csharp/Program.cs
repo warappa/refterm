@@ -10,13 +10,16 @@ namespace Refterm
 {
     class Program
     {
-        [MTAThread]
+        [STAThread]
         static void Main()
         {
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+            Form1 mainForm = new Form1();
+            mainForm.Width = 612;
+            mainForm.Height = 612;
+            Application.Run(mainForm);
         }
 
     }

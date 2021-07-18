@@ -1,7 +1,9 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Refterm
 {
+    [DebuggerDisplay("{GlyphIndex}")]
     [StructLayout(LayoutKind.Sequential)]
     public struct RendererCell
     {

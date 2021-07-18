@@ -5,7 +5,7 @@
         public int FirstP;
         public int OnePastLastP;
         public bool ContainsComplexChars;
-        public GlyphProps StartingProps;
+        public GlyphProps StartingProps = new GlyphProps();
 
         public void Clear()
         {

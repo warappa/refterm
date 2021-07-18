@@ -56,10 +56,20 @@
             }
         }
 
-        public RendererCell? GetCell(Position point)
+        public static RendererCell Uninitialized = new();
+        public ref RendererCell GetCell(Position point)
         {
-            var Result = IsInBounds(point) ? Cells[point.Y * DimX + point.X] : (RendererCell?)null;
-            return Result;
+            if (IsInBounds(point))
+            {
+                return ref Cells[point.Y * DimX + point.X];
+            }
+
+            return ref Uninitialized;
+        }
+
+        public void UpdateCell(Position point, RendererCell cell)
+        {
+            Cells[point.Y * DimX + point.X] = cell;
         }
     }
 }
