@@ -45,11 +45,15 @@ namespace Refterm
                 Format = Format.B8G8R8A8_UNorm,
                 SampleDescription = new SampleDescription(1, 0),
                 Usage = ResourceUsage.Default,
-                BindFlags = BindFlags.ShaderResource
+                BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget
             };
 
             GlyphTexture = new Texture2D(Device, textureDesc);
+            GlyphTexture.DebugName = "GlyphTexture";
             GlyphTextureView = new ShaderResourceView(Device, GlyphTexture);
+            GlyphTextureView.DebugName = "GlyphTextureView";
+            var GlyphTextureSurface = GlyphTexture.QueryInterface<Surface>();
+            GlyphTextureSurface.DebugName = "GlyphTextureSurface";
         }
 
         private void ReleaseD3DGlyphCache()
@@ -75,8 +79,11 @@ namespace Refterm
             };
 
             GlyphTransfer = new Texture2D(Device, textureDesc);
+            GlyphTransfer.DebugName = "GlyphTransfer";
             GlyphTransferView = new ShaderResourceView(Device, GlyphTransfer);
+            GlyphTransferView.DebugName = "GlyphTransferView";
             GlyphTransferSurface = GlyphTransfer.QueryInterface<Surface>();
+            GlyphTransferSurface.DebugName = "GlyphTransferSurface";
 
             D2DAcquire(GlyphTransferSurface);
         }

@@ -333,7 +333,7 @@ namespace Refterm
 
                     using (var Buffer = Renderer.SwapChain.GetBackBuffer<Texture2D>(0))
                     {
-                        
+                        Buffer.DebugName = "BackBuffer Texture";
                         //hr = IDXGISwapChain_GetBuffer(Renderer.SwapChain, 0, &IID_ID3D11Texture2D, (void**)&Buffer);
                         //AssertHR(hr);
 
@@ -346,6 +346,7 @@ namespace Refterm
                         else
                         {
                             Renderer.RenderTarget = new RenderTargetView(Renderer.Device, Buffer);
+                            Renderer.RenderTarget.DebugName = "RenderTarget";
                             //hr = ID3D11Device_CreateRenderTargetView(Renderer.Device, (ID3D11Resource*)Buffer, 0, &Renderer.RenderTarget);
                             //AssertHR(hr);
 
@@ -358,7 +359,6 @@ namespace Refterm
                             };
 
                             Renderer.DeviceContext.Rasterizer.SetViewports(new[] { ViewPort }, 1);
-
                             Renderer.DeviceContext.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
                         }
                     }
@@ -377,17 +377,21 @@ namespace Refterm
             if (Renderer.RenderView is not null ||
                 Renderer.RenderTarget is not null)
             {
-                var dataBox = Renderer.DeviceContext.MapSubresource(Renderer.ConstantBuffer, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out var Mapped);
+                var dataBox = Renderer.DeviceContext.MapSubresource(Renderer.ConstantBuffer, 0,
+                    MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out var Mapped);
                 //hr = ID3D11DeviceContext_Map(Renderer.DeviceContext, (ID3D11Resource*)Renderer.ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
                 //AssertHR(hr);
                 {
                     var ConstData = new RendererConstBuffer
                     {
-                        CellSize = new uint[] { GlyphGen.FontWidth, GlyphGen.FontHeight },
-                        TermSize = new uint[] { Term.DimX, Term.DimY },
-                        TopLeftMargin = new uint[] { 0, 0 },
+                        CellSizeX = GlyphGen.FontWidth,
+                        CellSizeY = GlyphGen.FontHeight,
+                        TermSizeX = Term.DimX,
+                        TermSizeY = Term.DimY,
+                        TopMargin = 8,
+                        LeftMargin = 8,
                         BlinkModulate = BlinkModulate,
-                        MarginColor = 0x99ff00ff,// 0x000c0c0c,
+                        MarginColor = 0x000c0c0c,
 
                         StrikeMin = GlyphGen.FontHeight / 2 - GlyphGen.FontHeight / 10,
                         StrikeMax = GlyphGen.FontHeight / 2 + GlyphGen.FontHeight / 10,
@@ -400,7 +404,7 @@ namespace Refterm
                 }
                 Renderer.DeviceContext.UnmapSubresource(Renderer.ConstantBuffer, 0);
 
-                var dataBox2 = Renderer.DeviceContext.MapSubresource(Renderer.CellBuffer, 0, SharpDX.Direct3D11.MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out Mapped);
+                var dataBox2 = Renderer.DeviceContext.MapSubresource(Renderer.CellBuffer, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out Mapped);
                 //hr = ID3D11DeviceContext_Map(Renderer.DeviceContext, (ID3D11Resource*)Renderer.CellBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
                 //AssertHR(hr);
                 {
@@ -422,7 +426,7 @@ namespace Refterm
                             Cells.DataPointer.ToPointer(),
                             (int)Cells.Length / Marshal.SizeOf<RendererCell>());
 
-                        var targetCellSpan = cellSpan.Slice( (int)TopCellCount);
+                        var targetCellSpan = cellSpan.Slice((int)TopCellCount);
 
                         termCellsFirstCopy.CopyTo(cellSpan);
 
@@ -569,7 +573,7 @@ namespace Refterm
                 };
 
                 Renderer.CellBuffer = new SharpDX.Direct3D11.Buffer(Renderer.Device, CellBufferDesc);
-
+                Renderer.CellBuffer.DebugName = "CellBuffer";
                 //if (SUCCEEDED(ID3D11Device_CreateBuffer(Renderer.Device, &CellBufferDesc, 0, &Renderer.CellBuffer)))
                 {
                     var CellViewDesc = new ShaderResourceViewDescription
@@ -583,6 +587,7 @@ namespace Refterm
                     };
 
                     Renderer.CellView = new ShaderResourceView(Renderer.Device, Renderer.CellBuffer, CellViewDesc);
+                    Renderer.CellView.DebugName = "CellView";
                 }
 
                 Renderer.MaxCellCount = Count;
@@ -908,12 +913,25 @@ namespace Refterm
             RenderTarget.Transform = SharpDX.Matrix3x2.Scaling(XScale, YScale, new SharpDX.Vector2(0, 0));
 
             RenderTarget.BeginDraw();
-            RenderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(255, 0, 255, 0));
+            RenderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 0));
             RenderTarget.DrawText(String, StringLen, GlyphGen.TextFormat, Rect, FillBrush,
                 SharpDX.Direct2D1.DrawTextOptions.Clip | SharpDX.Direct2D1.DrawTextOptions.EnableColorFont,
                 SharpDX.Direct2D1.MeasuringMode.Natural);
+            //RenderTarget.DrawEllipse(
+            //                new SharpDX.Direct2D1.Ellipse
+            //                {
+            //                    RadiusX = 100,
+            //                    RadiusY = 100,
+            //                    Point = new SharpDX.Mathematics.Interop.RawVector2(28, 28)
+            //                },
+            //                FillBrush
+            //                );
+
             RenderTarget.Flush();
             RenderTarget.EndDraw();
+
+
+
             //if (!SUCCEEDED(Error))
             //{
             //    Assert(!"EndDraw failed");
@@ -2514,7 +2532,8 @@ namespace Refterm
         {
             var renderer = new D3D11Renderer();
 
-            var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded;
+            //var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded;
+            var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded | DeviceCreationFlags.Debug;
             if (enableDebugging)
             {
                 flags |= DeviceCreationFlags.Debug;
@@ -2554,11 +2573,14 @@ namespace Refterm
                 CpuAccessFlags = CpuAccessFlags.Write
             };
 
-            var constantBuffer = new RendererConstBuffer();
-            renderer.ConstantBuffer = SharpDX.Direct3D11.Buffer.Create<RendererConstBuffer>(renderer.Device, ref constantBuffer, constantBufferDesc);
+            renderer.ConstantBuffer = SharpDX.Direct3D11.Buffer.Create<RendererConstBuffer>(renderer.Device, new[] { new RendererConstBuffer() }, constantBufferDesc);
+            renderer.ConstantBuffer.DebugName = "RendererConstBuffer";
             renderer.ComputeShader = new ComputeShader(renderer.Device, CssShaderBytes);
+            renderer.ComputeShader.DebugName = "ComputeShader";
             renderer.PixelShader = new PixelShader(renderer.Device, PSShaderBytes);
+            renderer.PixelShader.DebugName = "PixelShader";
             renderer.VertexShader = new VertexShader(renderer.Device, VSShaderBytes);
+            renderer.VertexShader.DebugName = "VertexShader";
 
             return renderer;
         }
@@ -2598,7 +2620,9 @@ namespace Refterm
             {
                 using (var swapChain1 = new SwapChain1(factory, device, window, ref swapChainDesc))
                 {
+                    swapChain1.DebugName = "SwapChain1";
                     var swapChain2 = swapChain1.QueryInterface<SwapChain2>();
+                    swapChain2.DebugName = "SwapChain2";
                     factory.MakeWindowAssociation(window, WindowAssociationFlags.IgnoreAltEnter | WindowAssociationFlags.IgnoreAll);
                     return swapChain2;
                 }
