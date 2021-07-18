@@ -13,6 +13,8 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Refterm
@@ -194,8 +196,11 @@ namespace Refterm
                     }
                 }
 
+                
                 do
                 {
+                    Thread.Sleep(16);
+
                     //int FastIn = UpdateTerminalBuffer(FastPipe);
                     //var SlowIn = UpdateTerminalBuffer(ChildProcess?.StandardOutput);
                     //var ErrIn = UpdateTerminalBuffer(ChildProcess?.StandardError);
@@ -212,7 +217,8 @@ namespace Refterm
                     //    //Legacy_ReadStdError = INVALID_HANDLE_VALUE;
                     //}
                 }
-                while ((Renderer.FrameLatencyWaitableObject != IntPtr.Zero) &&
+                while (!Quit &&
+                (Renderer.FrameLatencyWaitableObject != IntPtr.Zero) &&
                           (NativeWindows.WaitForSingleObject(Renderer.FrameLatencyWaitableObject, 0) == NativeWindows.WAIT_TIMEOUT));
 
                 //ResetEvent(FastPipeReady);
@@ -506,6 +512,8 @@ namespace Refterm
             ReleaseD3DGlyphCache(Renderer);
             ReleaseD3DGlyphTransfer(Renderer);
             ReleaseD3D11RenderTargets(Renderer);
+
+            Renderer.FrameLatencyWaitableObject = IntPtr.Zero;
 
             Renderer.ComputeShader?.Dispose();
             Renderer.PixelShader?.Dispose();
