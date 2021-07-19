@@ -49,7 +49,7 @@
             uint Background = terminal.DefaultBackgroundColor;
             for (var i = 0; i < Count; i++)
             {
-                var cell = Cells[offset + i];
+                ref var cell = ref Cells[offset + i];
                 cell.GlyphIndex = 0;
                 cell.Foreground = Background; // TODO(casey): Should be able to set this to 0, but need to make sure cache slot 0 never gets filled
                 cell.Background = Background;

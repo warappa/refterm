@@ -7,14 +7,14 @@
         public bool ContainsComplexChars;
         public GlyphProps StartingProps = new GlyphProps();
 
-        public void Clear()
+        public void Clear(Terminal terminal)
         {
             ContainsComplexChars = false;
             FirstP = 0;
             OnePastLastP = 0;
-            StartingProps.Background = 0;
+            StartingProps.Background = terminal.DefaultBackgroundColor;
             StartingProps.Flags = 0;
-            StartingProps.Foreground = 0;
+            StartingProps.Foreground = terminal.DefaultForegroundColor;
         }
     }
 }

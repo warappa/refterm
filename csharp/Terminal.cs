@@ -1727,13 +1727,13 @@ namespace Refterm
             else if ((command == "clear") ||
                     (command == "cls"))
             {
-                RunningCursor.ClearCursor();
+                //RunningCursor.ClearCursor();
                 for (var i = 0; i < Lines.Length; i++)
                 {
                     var line = Lines[i];
-                    line.Clear();
+                    line.Clear(this);
                 }
-
+                ScreenBuffer.Clear();
                 ScrollBackBuffer.Clear();
             }
             else if ((command == "exit") ||
