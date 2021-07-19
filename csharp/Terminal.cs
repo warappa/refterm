@@ -2008,12 +2008,17 @@ namespace Refterm
 
                     //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
                     ContainsComplex |= test;
-
+                    if (ContainsComplex)
+                    {
+                        break;
+                    }
                     index++;
                 }
 
                 //Range = ConsumeCount(Range, Data - Range.Data);
-                Range = ConsumeCount(Range, index);
+                Range = ConsumeCount(Range, Count);
+
+                Debug.WriteLine($"CurrentLineIndex {CurrentLineIndex}");
 
                 Lines[CurrentLineIndex].ContainsComplexChars |= ContainsComplex;
                 //_mm_movemask_epi8(ContainsComplex);
