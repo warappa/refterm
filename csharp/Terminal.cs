@@ -672,10 +672,14 @@ namespace Refterm
             CommandLineRange.Data = CommandLine;
             ParseLineIntoGlyphs(CommandLineRange, Cursor, true);
 
-            char[] CursorCode = new char[] { '\x1b', '[', '5', 'm', (char)0xe2, (char)0x96, (char)0x88 };
+            var CursorCode = new char[] { '\x1b', '[', '5', 'm', (char)0xe2, (char)0x96, (char)0x88 }
+                .Select(x => (byte)x)
+                .ToArray();
             SourceBufferRange CursorRange = new SourceBufferRange();
             CursorRange.Count = CursorCode.Length;
-            CursorRange.Data = CursorCode;
+            var c = new char[24];
+            Encoding.UTF8.GetChars(CursorCode, c);
+            CursorRange.Data = c;
             ParseLineIntoGlyphs(CursorRange, Cursor, true);
             AdvanceRowNoClear(Cursor.Position);
 
