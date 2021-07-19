@@ -1027,13 +1027,32 @@ namespace Refterm
             //var utf8Bytes = Encoding.UTF8.GetBytes(sourceString);
             //byte[] unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, utf8Bytes);
             //var unicodeString = Encoding.Unicode.GetString((byte*)UTF8Range.Data.Pin().Pointer, UTF8Range.Count);
-            var unicodeString = new string(UTF8Range.Data.Span.ToArray().Take(UTF8Range.Count).TakeWhile(x => x != '\0').ToArray());
-            var unicodeBytes = UnicodeEncoding.Unicode.GetBytes(unicodeString);
-            unicodeBytes.CopyTo(Partitioner.Expansion, 0);
+
+            //var unicodeString = new string(UTF8Range.Data.Span.ToArray().Take(UTF8Range.Count).TakeWhile(x => x != '\0').ToArray());
+            //string unicodeString = null;
+            //unsafe
+            //{
+            //    using (var pin = UTF8Range.Data.Pin())
+            //    {
+
+            //        unicodeString = Encoding.Unicode.GetString((byte*)pin.Pointer, 
+            //            //Encoding.Unicode.GetByteCount(UTF8Range.Data.Span)
+            //            UTF8Range.Count);
+            //    }
+            //}
+            var spanBytes = MemoryMarshal.Cast<char, byte>(UTF8Range.Data.Span.Slice(0, UTF8Range.Count));
+
+            //var utf8String = new string(UTF8Range.Data.Span.Slice(0, UTF8Range.Count));
+            //var unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, spanBytes.ToArray());
 
             //var Count = MultiByteToWideChar(CP_UTF8, 0, UTF8Range.Data, (DWORD)UTF8Range.Count,
             //                                  Partitioner->Expansion, ArrayCount(Partitioner->Expansion));
-            char[] Data = Partitioner.Expansion;
+
+            var unicodeString = Encoding.Unicode.GetString(spanBytes);
+            //unicodeBytes.CopyTo(Partitioner.Expansion, unicodeBytes.Length);
+            UTF8Range.Data.Span.Slice(0, UTF8Range.Count)
+                .CopyTo(Partitioner.Expansion.AsSpan());
+
             var Count = unicodeString.Length;
 
             Uniscribe.NativeMethods.ScriptItemize(unicodeString, unicodeString.Length,
