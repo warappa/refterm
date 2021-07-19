@@ -5,10 +5,29 @@ namespace Refterm
 {
     public class NativeWindows
     {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern uint GetConsoleCP();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool SetConsoleCP(uint wCodePageID);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern uint GetConsoleOutputCP();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool SetConsoleOutputCP(uint wCodePageID);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool AttachConsole(int dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool AllocConsole();
+
         [return: MarshalAs(UnmanagedType.Bool)]
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool PostThreadMessage(uint threadId, uint msg, IntPtr wParam, IntPtr lParam);
-        
+
         [DllImport("kernel32.dll")]
         public static extern uint GetCurrentThreadId();
 

@@ -7,6 +7,7 @@ using SharpDX.DXGI;
 using SharpDX.WIC;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -65,6 +66,7 @@ namespace Refterm
         public long ViewingLineOffset { get; private set; }
         public bool DebugHighlighting { get; private set; }
         public char LastChar { get; private set; }
+        public CancellationTokenSource ChildProcessCancellationTokenSource { get; private set; }
 
         int CommandLineCount = 0;
 
@@ -1813,6 +1815,25 @@ namespace Refterm
             //SetHandleInformation(Terminal->Legacy_ReadStdOut, HANDLE_FLAG_INHERIT, 0);
             //SetHandleInformation(Terminal->Legacy_ReadStdError, HANDLE_FLAG_INHERIT, 0);
 
+            var codePage = CultureInfo.CurrentCulture.TextInfo.OEMCodePage; //Console.OutputEncoding.CodePage
+            var encoding = Encoding.GetEncoding(codePage);
+            codePage = encoding.CodePage;
+
+            //Console.OutputEncoding = encoding;
+            //Console.InputEncoding = encoding;
+            //var aaa = NativeWindows.GetConsoleCP();
+            //var bbb = NativeWindows.GetConsoleOutputCP();
+
+            //using var p = new Process();
+            //p.StartInfo = new ProcessStartInfo
+            //{
+            //    FileName = "chcp",
+            //    UseShellExecute = true,
+            //    Arguments = $"{encoding}",
+            //};
+            //p.Start();
+            //p.WaitForExit();
+
             var process = new Process();
             var ProcessDir = ".\\";
 
@@ -1822,16 +1843,32 @@ namespace Refterm
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 RedirectStandardInput = true,
+                StandardOutputEncoding = encoding,
+                StandardErrorEncoding = encoding,
+                StandardInputEncoding = encoding,
                 FileName = ProcessName,
                 Arguments = ProcessCommandLine,
                 WorkingDirectory = ProcessDir,
+                LoadUserProfile = true
             };
-            process.EnableRaisingEvents = true;
+            process.StartInfo.EnvironmentVariables["LANG"] = $".{codePage}";
+            process.StartInfo.EnvironmentVariables["LC_COLLATE"] = $".{codePage}";
+            process.StartInfo.EnvironmentVariables["LC_ALL"] = $".{codePage}";
+            process.StartInfo.EnvironmentVariables["LC_CTYPE"] = $".{codePage}";
+            process.StartInfo.EnvironmentVariables["SESSIONNAME"] = $"Console";
+
+            //process.EnableRaisingEvents = true;
+            //process.ErrorDataReceived += Process_OutputDataReceived;
+            //process.OutputDataReceived += Process_OutputDataReceived;
+            process.Exited += Process_Exited;
 
             try
             {
                 if (!process.Start())
                 {
+                    process.ErrorDataReceived -= Process_OutputDataReceived;
+                    process.OutputDataReceived -= Process_OutputDataReceived;
+                    process.Exited -= Process_Exited;
                     return false;
                 }
             }
@@ -1840,10 +1877,119 @@ namespace Refterm
                 return false;
             }
 
-            process.BeginOutputReadLine();
+            //Ude.CharsetDetector cdet = new Ude.CharsetDetector();
+            //cdet.Feed(fs);
+            //cdet.DataEnd();
+            //if (cdet.Charset != null)
+            //{
+            //    Console.WriteLine("Charset: {0}, confidence: {1}",
+            //         cdet.Charset, cdet.Confidence);
+            //}
+            //else
+            //{
+            //    Console.WriteLine("Detection failed.");
+            //}
 
-            process.OutputDataReceived += Process_OutputDataReceived;
-            process.Exited += Process_Exited;
+            //process.BeginOutputReadLine();
+            //process.BeginErrorReadLine();
+            ChildProcessCancellationTokenSource = new CancellationTokenSource();
+
+            Task.Run(async () =>
+            {
+                var token = ChildProcessCancellationTokenSource.Token;
+                var buffer = new byte[10 * 1024];
+                //var memory = buffer.AsMemory();
+                Encoding detectedEncoding = null;
+                var offset = 0;
+                //var cacheBuffer = new byte[10*1024];
+                //var cacheMemory = cacheBuffer.AsMemory();
+
+                
+
+                while (ChildProcess is not null)
+                {
+                    var readToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
+
+                    var registration = token.Register(() => readToken.Cancel());
+
+                    try
+                    {
+                        int read = 0;
+                        do
+                        {
+                            read = process.StandardOutput.BaseStream
+                                .Read(buffer, offset, buffer.Length - offset);
+
+                            if (read > 0)
+                            {
+                                if (detectedEncoding is null)
+                                {
+                                    //Ude.CharsetDetector cdet = new Ude.CharsetDetector();
+                                    //cdet.Feed(buffer, offset, read);
+                                    //cdet.DataEnd();
+
+                                    //if (cdet.Charset != null &&
+                                    //    cdet.Confidence>0.6)
+                                    //{
+                                    //    detectedEncoding = Encoding.GetEncoding(cdet.Charset);
+                                    //}
+
+                                    //var res = UtfUnknown.CharsetDetector.DetectFromBytes(buffer);
+                                    //if (res.Detected is not null)
+                                    //{
+                                    //    detectedEncoding = res.Detected.Encoding;
+                                    //}
+                                    var nullCount = 0f;
+                                    for (var i = 1; i < read; i += 2)
+                                    {
+                                        var value = buffer[i];
+                                        if (value == 0)
+                                        {
+                                            nullCount++;
+                                        }
+                                    }
+
+                                    if ((nullCount * 2) / read > 0.5 ||
+                                        (read >= 2 && buffer[0] == 255 && buffer[1] == 254))
+                                    {
+                                        detectedEncoding = Encoding.Unicode;
+                                    }
+                                    else
+                                    {
+                                        detectedEncoding = encoding;
+                                    }
+                                }
+
+                                if (detectedEncoding is not null)
+                                {
+                                    var outputString = detectedEncoding.GetString(buffer, 0, offset + read);
+                                    AppendOutput(outputString);
+
+                                    offset = 0;
+                                }
+                            }
+                        }
+                        while (read > 0 &&
+                            !process.HasExited &&
+                            !token.IsCancellationRequested);
+                    }
+                    catch (Exception exc)
+                    {
+
+                    }
+                    finally
+                    {
+                        registration.Dispose();
+                    }
+
+                    if (token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    await Task.Delay(100);
+                }
+            });
 
             ChildProcess = process;
 
@@ -1894,17 +2040,25 @@ namespace Refterm
 
         private void Process_Exited(object sender, EventArgs e)
         {
+            var lastOutput = ChildProcess.StandardOutput.ReadToEnd();
+            if (lastOutput.Length > 0)
+            {
+                AppendOutput(lastOutput);
+            }
+
+            ChildProcessCancellationTokenSource.Cancel();
+            ChildProcessCancellationTokenSource = null;
             CloseProcess();
         }
 
         private void Process_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            if (string.IsNullOrEmpty(e.Data))
+            if (e.Data is null)
             {
                 return;
             }
 
-            AppendOutput(e.Data+'\n');
+            AppendOutput(e.Data + '\n');
         }
 
         void KillProcess()
@@ -1920,11 +2074,12 @@ namespace Refterm
         {
             if (ChildProcess is not null)
             {
+                ChildProcess.ErrorDataReceived -= Process_OutputDataReceived;
                 ChildProcess.OutputDataReceived -= Process_OutputDataReceived;
                 ChildProcess.Exited -= Process_Exited;
             }
 
-            ChildProcess?.Dispose(); ;
+            ChildProcess?.Dispose();
             //CloseHandle(Legacy_WriteStdIn);
             //CloseHandle(Legacy_ReadStdOut);
             //CloseHandle(Legacy_ReadStdError);
