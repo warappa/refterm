@@ -21,9 +21,7 @@ namespace Refterm
 {
     public class Terminal
     {
-        static string OpeningMessage = string.Join("", new int[] { 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0x82, 0x2C, 0x20, 0xE0, 0xA4, 0xB2, 0xE0, 0xA5, 0x87, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x86, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0x96, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xAE, 0xE0, 0xA5, 0x82, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0xA6, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0xE0, 0xA4, 0xA8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0x85, 0xE0, 0xA4, 0xAD, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0xE0, 0xA4, 0xAF, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0xE0, 0xA4, 0x8F, 0xE0, 0xA4, 0x82, 0xE0, 0xA4, 0x97, 0xE0, 0xA5, 0x87, 0x20, 0x7C, 0x20, (int)'\n' }
-            .Select(x => (char)x)
-            .ToArray());
+        static byte[] OpeningMessage = new byte[] { 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0x82, 0x2C, 0x20, 0xE0, 0xA4, 0xB2, 0xE0, 0xA5, 0x87, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x86, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0x96, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xAE, 0xE0, 0xA5, 0x82, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0xA6, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0xE0, 0xA4, 0xA8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0x85, 0xE0, 0xA4, 0xAD, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0xE0, 0xA4, 0xAF, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0xE0, 0xA4, 0x8F, 0xE0, 0xA4, 0x82, 0xE0, 0xA4, 0x97, 0xE0, 0xA5, 0x87, 0x20, 0x7C, 0x20, (byte)'\n' };
 
         const int LARGEST_AVAILABLE = int.MaxValue - 1;
 
@@ -140,7 +138,7 @@ namespace Refterm
                 );
 
             AppendOutput("\n");
-            AppendOutput(OpeningMessage);
+            AppendOutput(Encoding.UTF8.GetString(OpeningMessage));
             AppendOutput("\n");
 
             var BlinkMS = 500; // TODO(casey): Use this in blink determination
@@ -803,11 +801,10 @@ namespace Refterm
             Entry.DimY = NewDimY;
         }
 
-        static GlyphEntry GetEntry(GlyphTable Table, uint Index)
+        static ref GlyphEntry GetEntry(GlyphTable Table, uint Index)
         {
             //Assert(Index < Table->EntryCount);
-            GlyphEntry Result = Table.Entries[Index];
-            return Result;
+            return ref Table.Entries[Index];
         }
 
         static GlyphDim GetSingleTileUnitDim()
@@ -1020,11 +1017,14 @@ namespace Refterm
             */
 
             //example_partitioner* Partitioner = Partitioner;
-            var sourceString = new string(UTF8Range.Data.ToArray().TakeWhile(x => x != '\0').ToArray());
+            //var utf8RawBytes = (byte[])UTF8Range.Data;// .ToArray().Take(UTF8Range.Count).TakeWhile(x => x != '\0').ToArray();
+            //var sourceString = new string();
             //var sourceBytes = UTF8Range.Data.ToArray().TakeWhile(x => x != '\0').ToArray();
-            var utf8Bytes = Encoding.UTF8.GetBytes(sourceString);
-            byte[] unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, utf8Bytes);
-            var unicodeString = Encoding.Unicode.GetString(unicodeBytes);
+            //var utf8Bytes = Encoding.UTF8.GetBytes(sourceString);
+            //byte[] unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, utf8Bytes);
+            //var unicodeString = Encoding.Unicode.GetString((byte*)UTF8Range.Data.Pin().Pointer, UTF8Range.Count);
+            var unicodeString = new string(UTF8Range.Data.Span.ToArray().Take(UTF8Range.Count).TakeWhile(x => x != '\0').ToArray());
+            var unicodeBytes = UnicodeEncoding.Unicode.GetBytes(unicodeString);
             unicodeBytes.CopyTo(Partitioner.Expansion, 0);
 
             //var Count = MultiByteToWideChar(CP_UTF8, 0, UTF8Range.Data, (DWORD)UTF8Range.Count,
@@ -1043,20 +1043,21 @@ namespace Refterm
                 ItemIndex < ItemCount;
                 ++ItemIndex)
             {
-                var Items = Partitioner.Items.AsSpan(ItemIndex);
+                //var Items = Partitioner.Items.AsSpan(ItemIndex);
+                var Item = Partitioner.Items[ItemIndex];
 
                 //Assert((DWORD)Item->iCharPos < Count);
-                var StrCount = Count - Items[0].iCharPos;
+                var StrCount = Count - Item.iCharPos;
                 if ((ItemIndex + 1) < ItemCount)
                 {
                     //Assert(Item[1].iCharPos >= Item[0].iCharPos);
-                    StrCount = Items[1].iCharPos - Items[0].iCharPos;
+                    StrCount = Partitioner.Items[ItemIndex + 1].iCharPos - Item.iCharPos;
                 }
 
-                var Str = new string(unicodeString.AsSpan(Items[0].iCharPos, StrCount));
+                var Str = new string(unicodeString.AsSpan(Item.iCharPos, StrCount));
 
                 var IsComplex = Uniscribe.NativeMethods.ScriptIsComplex(Str, StrCount, Uniscribe.Constants.SIC_COMPLEX) == Uniscribe.Constants.S_OK;
-                Uniscribe.NativeMethods.ScriptBreak(Str, StrCount, ref Items[0].a, Partitioner.Log);
+                Uniscribe.NativeMethods.ScriptBreak(Str, StrCount, ref Item.a, Partitioner.Log);
 
                 int SegCount = 0;
 
@@ -1085,8 +1086,8 @@ namespace Refterm
                 int dSeg = 1;
                 int SegStart = 0;
                 int SegStop = SegCount - 1;
-                if (Items[0].a.fRTL > 0 ||
-                    Items[0].a.fLayoutRTL > 0)
+                if (Item.a.fRTL > 0 ||
+                    Item.a.fLayoutRTL > 0)
                 {
                     dSeg = -1;
                     SegStart = SegCount - 2;
@@ -1101,7 +1102,7 @@ namespace Refterm
 
                     if (ThisCount > 0)
                     {
-                        var Run = Str.AsSpan((int)Start);
+                        var Run = Str.AsSpan((int)Start, ThisCount);
                         char CodePoint = Run[0];
                         if ((ThisCount == 1) && IsDirectCodepoint(CodePoint))
                         {
@@ -1256,6 +1257,8 @@ namespace Refterm
             if (!Table.Dictionary.TryGetValue(RunHash.Value, out var entry))
             {
                 entry = new GlyphEntry();
+                entry.GPUIndex = Table.PickNextFreeGpuIndex();
+                Table.Dictionary[RunHash.Value] = entry;
             }
 
             return new GlyphState
@@ -1970,13 +1973,16 @@ namespace Refterm
 
                 var Data = Range.Data.Span;
                 var index = 0;
+                var testC = false;
+                var testE = false;
+                var testX = false;
                 while (index < Count)
                 {
                     var c = Data[index];
-                    var testC = c == '\n';
-                    var testE = c == '\x1b';
-                    var testX = c == (char)0x80;
-                    var test = testC && testE;
+                    testC |= c == '\n';
+                    testE |= c == '\x1b';
+                    testX |= c == (char)0x80;
+                    var test = testC || testE || testX;
 
 
                     //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
@@ -1997,7 +2003,7 @@ namespace Refterm
                     //}
 
                     //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                    ContainsComplex |= testX;
+                    ContainsComplex |= test;
 
                     index++;
                 }
@@ -2307,6 +2313,7 @@ namespace Refterm
             //Assert(Params.CacheTileCountInX >= 1);
 
             GlyphTable Result = new GlyphTable();
+            Result.Params = Params;
             Result.Entries = new GlyphEntry[Params.EntryCount];
             Result.EntryCount = (uint)Result.Entries.Length;
             for (var i = 0; i < Result.EntryCount; i++)
@@ -2334,7 +2341,7 @@ namespace Refterm
                 Entry.FilledState = GlyphEntryState.None;
                 Entry.DimX = 0;
                 Entry.DimY = 0;
-
+                Entry.Used = false;
                 ++X;
             }
 
@@ -2413,6 +2420,7 @@ namespace Refterm
                 }
 
                 Table[EntryIndex] = PackGlyphCachePoint(X, Y);
+                this.GlyphTable.Entries[EntryIndex].Used = true; 
 
                 ++X;
             }

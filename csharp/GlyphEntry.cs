@@ -13,5 +13,7 @@
         public GlyphEntryState FilledState;
         public uint DimX;
         public uint DimY;
+
+        public bool Used { get; internal set; }
     }
 }
