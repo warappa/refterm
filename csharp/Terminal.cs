@@ -6,6 +6,7 @@ using SharpDX.DirectWrite;
 using SharpDX.DXGI;
 using SharpDX.WIC;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -26,6 +27,7 @@ namespace Refterm
 
         const int LARGEST_AVAILABLE = int.MaxValue - 1;
 
+        private ConcurrentQueue<string> outputTransfer = new ConcurrentQueue<string>();
         public bool LineWrap { get; set; } = true;
         public Process? ChildProcess { get; set; }
         public String StandardIn { get; set; }
@@ -223,6 +225,11 @@ namespace Refterm
 
                 //ResetEvent(FastPipeReady);
                 //ReadFile(FastPipe, 0, 0, 0, &FastPipeTrigger);
+
+                while (outputTransfer.TryDequeue(out var message))
+                {
+                    AppendOutput(message);
+                }
 
                 LayoutLines();
 
@@ -1963,7 +1970,8 @@ namespace Refterm
                                 if (detectedEncoding is not null)
                                 {
                                     var outputString = detectedEncoding.GetString(buffer, 0, offset + read);
-                                    AppendOutput(outputString);
+                                    outputTransfer.Enqueue(outputString);
+                                    //AppendOutput(outputString);
 
                                     offset = 0;
                                 }
