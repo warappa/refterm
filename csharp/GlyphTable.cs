@@ -18,12 +18,14 @@ namespace Refterm
 
         public GlyphTableParams Params { get; internal set; }
 
+        private int lastKnownEntry = 0;
         public GpuGlyphIndex PickNextFreeGpuIndex()
         {
-            for (var i = 0; i < Entries.Length; i++)
+            for (var i = lastKnownEntry; i < Entries.Length; i++)
             {
                 if (!Entries[i].Used)
                 {
+                    lastKnownEntry = i;
                     Entries[i].Used = true;
                     var X = i % Params.CacheTileCountInX;
                     var Y = i / Params.CacheTileCountInX;

@@ -133,7 +133,6 @@ namespace Refterm
 
             NativeWindows.ShowWindow(window, NativeWindows.ShowWindowOption.SW_SHOWDEFAULT);
 
-            //AppendOutput("\n"); // TODO(casey): Better line startup - this is here just to initialize the running cursor.
             Lines[0].StartingProps = RunningCursor.Props;
             AppendOutput($"Refterm v{Assembly.GetExecutingAssembly().GetName().Version}\n");
             AppendOutput("THIS IS \x1b[38;2;255;0;0m\x1b[5mNOT\x1b[0m A REAL \x1b[9mTERMINAL\x1b[0m.\r\n" +
@@ -220,8 +219,8 @@ namespace Refterm
                     //}
                 }
                 while (!Quit &&
-                (Renderer.FrameLatencyWaitableObject != IntPtr.Zero) &&
-                          (NativeWindows.WaitForSingleObject(Renderer.FrameLatencyWaitableObject, 0) == NativeWindows.WAIT_TIMEOUT));
+                    (Renderer.FrameLatencyWaitableObject != IntPtr.Zero) &&
+                    (NativeWindows.WaitForSingleObject(Renderer.FrameLatencyWaitableObject, 0) == NativeWindows.WAIT_TIMEOUT));
 
                 //ResetEvent(FastPipeReady);
                 //ReadFile(FastPipe, 0, 0, 0, &FastPipeTrigger);
@@ -373,7 +372,8 @@ namespace Refterm
                 Renderer.CurrentHeight = Height;
             }
 
-            var CellCount = Renderer.CurrentWidth * Renderer.CurrentHeight;
+            //var CellCount = Renderer.CurrentWidth * Renderer.CurrentHeight;
+            var CellCount = Term.DimX * Term.DimY;
             if (Renderer.MaxCellCount < CellCount)
             {
                 SetD3D11MaxCellCount(Renderer, CellCount);
@@ -1402,7 +1402,7 @@ namespace Refterm
         static bool IsDirectCodepoint(char CodePoint)
         {
             var Result = CodePoint >= MinDirectCodepoint &&
-                         CodePoint <= MaxDirectCodepoint;
+                         CodePoint < MaxDirectCodepoint;
             return Result;
         }
 
@@ -1448,7 +1448,7 @@ namespace Refterm
             {
                 Result.AbsoluteP = AbsoluteP;
                 Result.Count = (Buffer.AbsoluteFilledSize - AbsoluteP);
-                Result.Data = Buffer.Data.Slice(Buffer.DataSize + Buffer.RelativePoint - Result.Count);
+                Result.Data = Buffer.Data.Slice(/*Buffer.DataSize + */Buffer.RelativePoint - Result.Count);
 
                 if (Result.Count > Result.Data.Length)
                 {
@@ -1649,11 +1649,12 @@ namespace Refterm
                                             //                        Chars, CharCount,
                                             //                        Terminal->CommandLine + Terminal->CommandLineCount,
                                             //                        SpaceLeft, 0, 0);
-                                            var command = Encoding.Unicode.GetString(
-                                                Encoding.Convert(
-                                                    Encoding.UTF8,
-                                                    Encoding.Unicode,
-                                                    Chars.Select(x => (byte)x).ToArray()));
+                                            //var command = Encoding.Unicode.GetString(
+                                            //    Encoding.Convert(
+                                            //        Encoding.UTF8,
+                                            //        Encoding.Unicode,
+                                            //        Chars.Select(x => (byte)x).ToArray()));
+                                            var command = new string(Chars);
                                             var nextSpan = CommandLine.AsSpan(CommandLineCount);
                                             command.CopyTo(nextSpan);
                                             CommandLineCount += command.Length - 1;
@@ -2119,7 +2120,24 @@ namespace Refterm
             //int Used = wvsprintfA(Dest.Data, Format, ArgList);
             //va_end(ArgList);
 
-            var str = string.Format(Format, args);
+            string str;
+
+            if (args.Length == 0)
+            {
+                str = Format;
+            }
+            else
+            {
+                try
+                {
+                    str = string.Format(Format, args);
+                }
+                catch
+                {
+                    str = Format;
+                }
+            }
+
             var used = str.Length;
 
             str.AsSpan().CopyTo(Dest.Data.Span);
@@ -2198,9 +2216,9 @@ namespace Refterm
                 }
 
                 //Range = ConsumeCount(Range, Data - Range.Data);
-                Range = ConsumeCount(Range, Count);
+                Range = ConsumeCount(Range, index);
 
-                Debug.WriteLine($"CurrentLineIndex {CurrentLineIndex}");
+                //Debug.WriteLine($"CurrentLineIndex {CurrentLineIndex}");
 
                 Lines[CurrentLineIndex].ContainsComplexChars |= ContainsComplex;
                 //_mm_movemask_epi8(ContainsComplex);
@@ -2360,17 +2378,18 @@ namespace Refterm
             return Result;
         }
 
-        static char GetToken(ref SourceBufferRange Range)
+        private static char NullToken = '\0';
+        static ref char GetToken(ref SourceBufferRange Range)
         {
-            char Result = (char)0;
+            ref char Result = ref NullToken;
 
             if (Range.Count > 0)
             {
-                Result = Range.Data.Span[0];
+                Result = ref Range.Data.Span[0];
                 Range = ConsumeCount(Range, 1);
             }
 
-            return Result;
+            return ref Result;
         }
 
         static bool AtEscape(SourceBufferRange Range)
@@ -2611,7 +2630,7 @@ namespace Refterm
                 }
 
                 Table[EntryIndex] = PackGlyphCachePoint(X, Y);
-                this.GlyphTable.Entries[EntryIndex].Used = true; 
+                this.GlyphTable.Entries[EntryIndex].Used = true;
 
                 ++X;
             }
