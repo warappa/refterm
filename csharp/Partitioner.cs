@@ -9,9 +9,9 @@
         public Uniscribe.SCRIPT_STATE UniState = new Uniscribe.SCRIPT_STATE();
         //public Uniscribe.SCRIPT_CACHE UniCache;
 
-        public char[] Expansion = new char[4 * 1024];
-        public Uniscribe.SCRIPT_ITEM[] Items = new Uniscribe.SCRIPT_ITEM[4 * 1024];
-        public Uniscribe.SCRIPT_LOGATTR[] Log = new Uniscribe.SCRIPT_LOGATTR[4 * 1024];
-        public uint[] SegP = new uint[4 * 1024 + 2];
+        public char[] Expansion = new char[16 * 1024];
+        public Uniscribe.SCRIPT_ITEM[] Items = new Uniscribe.SCRIPT_ITEM[16 * 1024];
+        public Uniscribe.SCRIPT_LOGATTR[] Log = new Uniscribe.SCRIPT_LOGATTR[16 * 1024];
+        public uint[] SegP = new uint[16 * 1024 + 2];
     }
 }

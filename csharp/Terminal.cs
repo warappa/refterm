@@ -52,7 +52,7 @@ namespace Refterm
         internal SourceBuffer ScrollBackBuffer { get; }
 
         // TODO: Initialize!
-        public byte[] CssShaderBytes { get; private set; } = Shaders.ReftermCSShaderBytes;
+        public byte[] CssShaderBytes { get; private set; } = Shaders.ReftermCShaderBytes;
         public byte[] PSShaderBytes { get; private set; } = Shaders.ReftermPSShaderBytes;
         public byte[] VSShaderBytes { get; private set; } = Shaders.ReftermVSShaderBytes;
 
@@ -100,8 +100,8 @@ namespace Refterm
 
             Partitioner = new Partitioner();
 
-            TextureWidth = 2048;
-            TextureHeight = 2048;
+            TextureWidth = 4 * 2048;
+            TextureHeight = 4 * 2048;
             //TransferWidth = 1024;
             //TransferHeight = 512;
             TransferWidth = (uint)TextureWidth;
@@ -197,37 +197,18 @@ namespace Refterm
                     }
                 }
 
-                
-                do
+                var queueCount = Math.Min(10 * 1024, outputTransfer.Count);
+                if (queueCount > 0)
+                {
+                    while (queueCount-- > 0 &&
+                        outputTransfer.TryDequeue(out var message))
+                    {
+                        AppendOutput(message);
+                    }
+                }
+                else
                 {
                     Thread.Sleep(16);
-
-                    //int FastIn = UpdateTerminalBuffer(FastPipe);
-                    //var SlowIn = UpdateTerminalBuffer(ChildProcess?.StandardOutput);
-                    //var ErrIn = UpdateTerminalBuffer(ChildProcess?.StandardError);
-
-                    //if (!SlowIn && (Legacy_ReadStdOut != INVALID_HANDLE_VALUE))
-                    //{
-                    //    //CloseHandle(Legacy_ReadStdOut); // TODO(casey): Not sure if this is supposed to be called?
-                    //    //Legacy_ReadStdOut = INVALID_HANDLE_VALUE;
-                    //}
-
-                    //if (!ErrIn && (Legacy_ReadStdError != INVALID_HANDLE_VALUE))
-                    //{
-                    //    //CloseHandle(Legacy_ReadStdError); // TODO(casey): Not sure if this is supposed to be called?
-                    //    //Legacy_ReadStdError = INVALID_HANDLE_VALUE;
-                    //}
-                }
-                while (!Quit &&
-                    (Renderer.FrameLatencyWaitableObject != IntPtr.Zero) &&
-                    (NativeWindows.WaitForSingleObject(Renderer.FrameLatencyWaitableObject, 0) == NativeWindows.WAIT_TIMEOUT));
-
-                //ResetEvent(FastPipeReady);
-                //ReadFile(FastPipe, 0, 0, 0, &FastPipeTrigger);
-
-                while (outputTransfer.TryDequeue(out var message))
-                {
-                    AppendOutput(message);
                 }
 
                 LayoutLines();
@@ -691,6 +672,8 @@ namespace Refterm
             CursorRange.Data = c;
             ParseLineIntoGlyphs(CursorRange, Cursor, true);
             AdvanceRowNoClear(Cursor.Position);
+
+            RunningCursor.ClearCursor();
 
             ScreenBuffer.FirstLineY = CursorJumped ? 0 : Cursor.Position.Y;
         }
@@ -1756,13 +1739,13 @@ namespace Refterm
             else if ((command == "clear") ||
                     (command == "cls"))
             {
-                //RunningCursor.ClearCursor();
+                RunningCursor.ClearCursor();
                 for (var i = 0; i < Lines.Length; i++)
                 {
                     var line = Lines[i];
                     line.Clear(this);
                 }
-                ScreenBuffer.Clear();
+                //ScreenBuffer.Clear();
                 ScrollBackBuffer.Clear();
             }
             else if ((command == "exit") ||
@@ -1801,6 +1784,59 @@ namespace Refterm
             }
         }
 
+        //void ExecuteSubProcessLowLevel(string ProcessName, string ProcessCommandLine)
+        //{
+        //    var codePage = CultureInfo.CurrentCulture.TextInfo.OEMCodePage; //Console.OutputEncoding.CodePage
+        //    var encoding = Encoding.GetEncoding(codePage);
+        //    codePage = encoding.CodePage;
+        //    //startupInfoEx.StartupInfo.cb = Marshal.SizeOf(startupInfoEx);
+
+        //    const uint NORMAL_PRIORITY_CLASS = 0x0020;
+
+        //    bool retValue;
+        //    string Application = ProcessName; ;
+        //    string CommandLine = @$" {ProcessCommandLine}";
+        //    var pInfo = new NativeWindows.PROCESS_INFORMATION();
+        //    var sInfo = new NativeWindows.STARTUPINFOEX();
+        //    var pSec = new NativeWindows.SECURITY_ATTRIBUTES();
+        //    var tSec = new NativeWindows.SECURITY_ATTRIBUTES();
+        //    pSec.nLength = Marshal.SizeOf(pSec);
+        //    tSec.nLength = Marshal.SizeOf(tSec);
+
+        //    //Open Notepad
+        //    retValue = NativeWindows.CreateProcessEx(
+        //        Application,
+        //        CommandLine,
+        //        ref pSec,
+        //        ref tSec,
+        //        true,
+        //        NativeWindows.ProcessCreationFlags.CREATE_NO_WINDOW |
+        //            NativeWindows.ProcessCreationFlags.CREATE_SUSPENDED |
+        //            NativeWindows.ProcessCreationFlags.EXTENDED_STARTUPINFO_PRESENT,
+        //        IntPtr.Zero, null, ref sInfo, out pInfo);
+
+        //    if (retValue)
+        //    {
+        //        if (NativeWindows.AttachConsole(pInfo.dwProcessId))
+        //        {
+        //            NativeWindows.SetConsoleCP((uint)encoding.CodePage);
+        //            NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
+        //            var freed = NativeWindows.FreeConsole();
+        //        }
+        //        else
+        //        {
+        //            if (NativeWindows.AllocConsole())
+        //            {
+        //                NativeWindows.SetConsoleCP((uint)encoding.CodePage);
+        //                NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
+        //            }
+        //        }
+
+        //        NativeWindows.ResumeThread(pInfo.hThread);
+        //        NativeWindows.CloseHandle(pInfo.hThread);
+        //    }
+        //}
+
         bool ExecuteSubProcess(string ProcessName, string ProcessCommandLine)
         {
             if (ChildProcess is not null)
@@ -1825,7 +1861,6 @@ namespace Refterm
 
             var codePage = CultureInfo.CurrentCulture.TextInfo.OEMCodePage; //Console.OutputEncoding.CodePage
             var encoding = Encoding.GetEncoding(codePage);
-            codePage = encoding.CodePage;
 
             //Console.OutputEncoding = encoding;
             //Console.InputEncoding = encoding;
@@ -1865,10 +1900,27 @@ namespace Refterm
             process.StartInfo.EnvironmentVariables["LC_CTYPE"] = $".{codePage}";
             process.StartInfo.EnvironmentVariables["SESSIONNAME"] = $"Console";
 
-            //process.EnableRaisingEvents = true;
+            process.EnableRaisingEvents = true;
             //process.ErrorDataReceived += Process_OutputDataReceived;
             //process.OutputDataReceived += Process_OutputDataReceived;
             process.Exited += Process_Exited;
+
+
+            //if (!NativeWindows.SetConsoleCP((uint)encoding.CodePage))
+            //{
+            //    if (NativeWindows.AllocConsole())
+            //    {
+            //        //NativeWindows.AttachConsole(pInfo.dwProcessId)
+            //        NativeWindows.SetConsoleCP((uint)encoding.CodePage);
+            //        NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
+            //    }
+            //}
+            //else
+            //{
+            //    NativeWindows.SetConsoleCP((uint)encoding.CodePage);
+            //    NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
+
+            //}
 
             try
             {
@@ -1879,11 +1931,27 @@ namespace Refterm
                     process.Exited -= Process_Exited;
                     return false;
                 }
+
             }
             catch
             {
                 return false;
             }
+
+            //if (NativeWindows.AttachConsole(process.Id))
+            //{
+            //    NativeWindows.SetConsoleCP((uint)encoding.CodePage);
+            //    NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
+            //    var freed = NativeWindows.FreeConsole();
+            //}
+            //else
+            //{
+            //    if (NativeWindows.AllocConsole())
+            //    {
+            //        NativeWindows.SetConsoleCP((uint)encoding.CodePage);
+            //        NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
+            //    }
+            //}
 
             //Ude.CharsetDetector cdet = new Ude.CharsetDetector();
             //cdet.Feed(fs);
@@ -1904,6 +1972,10 @@ namespace Refterm
 
             Task.Run(async () =>
             {
+                if (ChildProcessCancellationTokenSource is null)
+                {
+                    return;
+                }
                 var token = ChildProcessCancellationTokenSource.Token;
                 var buffer = new byte[10 * 1024];
                 //var memory = buffer.AsMemory();
@@ -1912,24 +1984,27 @@ namespace Refterm
                 //var cacheBuffer = new byte[10*1024];
                 //var cacheMemory = cacheBuffer.AsMemory();
 
-                
+                var stream = ChildProcess.StandardOutput.BaseStream;
 
-                while (ChildProcess is not null)
+                while (!token.IsCancellationRequested)
                 {
-                    var readToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
+                    //var readToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(16));
 
-                    var registration = token.Register(() => readToken.Cancel());
+                    //var registration = token.Register(() => readToken.Cancel());
 
                     try
                     {
                         int read = 0;
                         do
                         {
-                            read = process.StandardOutput.BaseStream
+                            read = stream
                                 .Read(buffer, offset, buffer.Length - offset);
 
                             if (read > 0)
                             {
+                                //var data = buffer.AsSpan(0, read).ToArray();
+                                //outputTransferBinary.Enqueue(data);
+
                                 if (detectedEncoding is null)
                                 {
                                     //Ude.CharsetDetector cdet = new Ude.CharsetDetector();
@@ -1948,7 +2023,8 @@ namespace Refterm
                                     //    detectedEncoding = res.Detected.Encoding;
                                     //}
                                     var nullCount = 0f;
-                                    for (var i = 1; i < read; i += 2)
+                                    var maxCheck = Math.Min(read, 256);
+                                    for (var i = 1; i < maxCheck; i += 2)
                                     {
                                         var value = buffer[i];
                                         if (value == 0)
@@ -1957,10 +2033,15 @@ namespace Refterm
                                         }
                                     }
 
-                                    if ((nullCount * 2) / read > 0.5 ||
-                                        (read >= 2 && buffer[0] == 255 && buffer[1] == 254))
+                                    if ((nullCount * 2) / maxCheck > 0.5 ||
+                                        (maxCheck >= 2 && buffer[0] == 255 && buffer[1] == 254))
                                     {
                                         detectedEncoding = Encoding.Unicode;
+                                    }
+                                    else if (maxCheck >= 3 &&
+                                        buffer[0] == 239 && buffer[1] == 187 && buffer[2] == 191)
+                                    {
+                                        encoding = Encoding.UTF8;
                                     }
                                     else
                                     {
@@ -1972,14 +2053,12 @@ namespace Refterm
                                 {
                                     var outputString = detectedEncoding.GetString(buffer, 0, offset + read);
                                     outputTransfer.Enqueue(outputString);
-                                    //AppendOutput(outputString);
 
                                     offset = 0;
                                 }
                             }
                         }
                         while (read > 0 &&
-                            !process.HasExited &&
                             !token.IsCancellationRequested);
                     }
                     catch (Exception exc)
@@ -1988,7 +2067,7 @@ namespace Refterm
                     }
                     finally
                     {
-                        registration.Dispose();
+                        //registration.Dispose();
                     }
 
                     if (token.IsCancellationRequested)
@@ -1996,7 +2075,7 @@ namespace Refterm
                         return;
                     }
 
-                    await Task.Delay(100);
+                    await Task.Delay(1);
                 }
             });
 
@@ -2049,14 +2128,11 @@ namespace Refterm
 
         private void Process_Exited(object sender, EventArgs e)
         {
-            var lastOutput = ChildProcess.StandardOutput.ReadToEnd();
+            var lastOutput = (sender as Process).StandardOutput.ReadToEnd();
             if (lastOutput.Length > 0)
             {
-                AppendOutput(lastOutput);
+                outputTransfer.Append(lastOutput);
             }
-
-            ChildProcessCancellationTokenSource.Cancel();
-            ChildProcessCancellationTokenSource = null;
             CloseProcess();
         }
 
@@ -2081,6 +2157,10 @@ namespace Refterm
 
         void CloseProcess()
         {
+            NativeWindows.FreeConsole();
+            ChildProcessCancellationTokenSource?.Cancel();
+            ChildProcessCancellationTokenSource = null;
+
             if (ChildProcess is not null)
             {
                 ChildProcess.ErrorDataReceived -= Process_OutputDataReceived;
@@ -2744,8 +2824,10 @@ namespace Refterm
 
         private void RevertToDefaultFont()
         {
-            RequestedFontName = "Courier New";
-            RequestedFontHeight = 25;
+            //RequestedFontName = "Courier New";
+            //RequestedFontHeight = 25;
+            RequestedFontName = "Cascadia Mono";
+            RequestedFontHeight = 17;
         }
 
         private SourceBuffer AllocateSourceBuffer(long dataSize)

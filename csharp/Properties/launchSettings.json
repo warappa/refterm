@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Refterm": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
