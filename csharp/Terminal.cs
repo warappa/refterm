@@ -27,7 +27,7 @@ namespace Refterm
 
         const int LARGEST_AVAILABLE = int.MaxValue - 1;
 
-        private ConcurrentQueue<string> outputTransfer = new ConcurrentQueue<string>();
+        private ConcurrentQueue<char[]> outputTransfer = new ConcurrentQueue<char[]>();
         public bool LineWrap { get; set; } = true;
         public Process? ChildProcess { get; set; }
         public String StandardIn { get; set; }
@@ -69,6 +69,7 @@ namespace Refterm
         public bool DebugHighlighting { get; private set; }
         public char LastChar { get; private set; }
         public CancellationTokenSource ChildProcessCancellationTokenSource { get; private set; }
+        private DateTime lastOutput = DateTime.MinValue;
 
         int CommandLineCount = 0;
 
@@ -198,8 +199,10 @@ namespace Refterm
                 }
 
                 var queueCount = Math.Min(10 * 1024, outputTransfer.Count);
-                if (queueCount > 0)
+                if (queueCount > 0 &&
+                    lastOutput.AddMilliseconds(16) < DateTime.UtcNow)
                 {
+                    lastOutput = DateTime.UtcNow;
                     while (queueCount-- > 0 &&
                         outputTransfer.TryDequeue(out var message))
                     {
@@ -277,7 +280,6 @@ namespace Refterm
                AT THAT TIME.  So now here I am manually releasing them,
                which wastes the user's time, for no reason at all. */
 
-            DWriteReleaseFont(GlyphGen);
             GlyphGen.DWriteFactory?.Dispose();
             GlyphGen.DWriteFactory = null;
         }
@@ -625,11 +627,25 @@ namespace Refterm
 
                 var Line = Lines[LineIndex];
 
-                SourceBufferRange Range = ReadSourceAt(ScrollBackBuffer, Line.FirstP, Line.OnePastLastP - Line.FirstP);
-                Cursor.Props = Line.StartingProps;
-                if (ParseLineIntoGlyphs(Range, Cursor, Line.ContainsComplexChars))
+                var remaining = Line.OnePastLastP - Line.FirstP;
+                var consumed = 0;
+                while (remaining > 0)
                 {
-                    CursorJumped = true;
+                    var Range = ReadSourceAt(ScrollBackBuffer, Line.FirstP + consumed, remaining);
+                    if (Range.Count == 0)
+                    {
+                        break;
+                    }
+                    Cursor.Props = Line.StartingProps;
+                    if (ParseLineIntoGlyphs(ref Range, Cursor, Line.ContainsComplexChars))
+                    {
+                        CursorJumped = true;
+                    }
+
+                    var cc = Range.AbsoluteP + Range.Count;
+
+                    remaining -= cc;
+                    consumed += cc;
                 }
             }
 
@@ -655,12 +671,12 @@ namespace Refterm
             SourceBufferRange PromptRange = new SourceBufferRange();
             PromptRange.Count = Prompt.Length;
             PromptRange.Data = Prompt;
-            ParseLineIntoGlyphs(PromptRange, Cursor, false);
+            ParseLineIntoGlyphs(ref PromptRange, Cursor, false);
 
             SourceBufferRange CommandLineRange = new SourceBufferRange();
             CommandLineRange.Count = CommandLineCount;
             CommandLineRange.Data = CommandLine;
-            ParseLineIntoGlyphs(CommandLineRange, Cursor, true);
+            ParseLineIntoGlyphs(ref CommandLineRange, Cursor, true);
 
             var CursorCode = new char[] { '\x1b', '[', '5', 'm', (char)0xe2, (char)0x96, (char)0x88 }
                 .Select(x => (byte)x)
@@ -670,7 +686,7 @@ namespace Refterm
             var c = new char[24];
             Encoding.UTF8.GetChars(CursorCode, c);
             CursorRange.Data = c;
-            ParseLineIntoGlyphs(CursorRange, Cursor, true);
+            ParseLineIntoGlyphs(ref CursorRange, Cursor, true);
             AdvanceRowNoClear(Cursor.Position);
 
             RunningCursor.ClearCursor();
@@ -678,7 +694,7 @@ namespace Refterm
             ScreenBuffer.FirstLineY = CursorJumped ? 0 : Cursor.Position.Y;
         }
 
-        bool ParseLineIntoGlyphs(SourceBufferRange Range,
+        bool ParseLineIntoGlyphs(ref SourceBufferRange Range,
                                 CursorState Cursor, bool ContainsComplexChars)
         {
             var CursorJumped = false;
@@ -1429,19 +1445,24 @@ namespace Refterm
             SourceBufferRange Result = new SourceBufferRange();
             if (IsInBuffer(Buffer, AbsoluteP))
             {
+                var relativePosition = AbsoluteP % Buffer.DataSize;
+
                 Result.AbsoluteP = AbsoluteP;
-                Result.Count = (Buffer.AbsoluteFilledSize - AbsoluteP);
-                Result.Data = Buffer.Data.Slice(/*Buffer.DataSize + */Buffer.RelativePoint - Result.Count);
+                Result.Count = Math.Min(Count, Buffer.AbsoluteFilledSize - AbsoluteP);
 
-                if (Result.Count > Result.Data.Length)
+                var availableInRestBuffer = Buffer.DataSize - relativePosition;
+
+                if (Result.Count > availableInRestBuffer)
                 {
-
+                    Result.Count = availableInRestBuffer;
+                    if (Result.Count == 0)
+                    {
+                        Buffer.RelativePoint = 0;
+                        Result.Count = Math.Min(Count, Buffer.DataSize);
+                    }
                 }
 
-                if (Result.Count > Count)
-                {
-                    Result.Count = Count;
-                }
+                Result.Data = Buffer.Data.Slice(relativePosition, Result.Count);
             }
 
             return Result;
@@ -1453,50 +1474,6 @@ namespace Refterm
             var Result = ((AbsoluteP < Buffer.AbsoluteFilledSize) &&
                           (BackwardOffset < Buffer.DataSize));
             return Result;
-        }
-
-        bool UpdateTerminalBuffer(StreamReader FromPipe)
-        {
-            var Result = false;
-
-            if (FromPipe is not null)
-            {
-                Result = true;
-
-                var Term = ScreenBuffer;
-
-                var PendingCount = GetPipePendingDataCount(FromPipe);
-                if (PendingCount > 0)
-                {
-                    SourceBufferRange Dest = GetNextWritableRange(ScrollBackBuffer, PendingCount);
-
-                    var ReadCount = 0;
-                    var read = FromPipe.ReadBlock(Dest.Data.Span.Slice(0, Dest.Count));
-                    if (read > 0)
-                    {
-                        //Assert(ReadCount <= Dest.Count);
-                        Dest.Count = ReadCount;
-                        CommitWrite(ScrollBackBuffer, Dest.Count);
-                        ParseLines(Dest, RunningCursor);
-                    }
-                }
-                else
-                {
-                    //var Error = GetLastError();
-                    //if ((Error == ERROR_BROKEN_PIPE) ||
-                    //   (Error == ERROR_INVALID_HANDLE))
-                    //{
-                    //    Result = 0;
-                    //}
-                }
-            }
-
-            return Result;
-        }
-
-        static int GetPipePendingDataCount(StreamReader Pipe)
-        {
-            return Pipe.Peek();
         }
 
         public TerminalBuffer AllocateTerminalBuffer(uint DimX, uint DimY)
@@ -1529,8 +1506,6 @@ namespace Refterm
 
         void ProcessMessages()
         {
-            var handle = new HandleRef(null, window);
-
             while (NativeWindows.PeekMessage(out var Message, new HandleRef(), 0, 0, NativeWindows.PeekMessageParams.PM_REMOVE))
             {
                 switch (Message.msg)
@@ -1625,18 +1600,6 @@ namespace Refterm
 
                                         if (CharCount > 0)
                                         {
-
-                                            //DWORD SpaceLeft = ArrayCount(Terminal->CommandLine) - Terminal->CommandLineCount;
-                                            //Terminal->CommandLineCount +=
-                                            //    WideCharToMultiByte(CP_UTF8, 0,
-                                            //                        Chars, CharCount,
-                                            //                        Terminal->CommandLine + Terminal->CommandLineCount,
-                                            //                        SpaceLeft, 0, 0);
-                                            //var command = Encoding.Unicode.GetString(
-                                            //    Encoding.Convert(
-                                            //        Encoding.UTF8,
-                                            //        Encoding.Unicode,
-                                            //        Chars.Select(x => (byte)x).ToArray()));
                                             var command = new string(Chars);
                                             var nextSpan = CommandLine.AsSpan(CommandLineCount);
                                             command.CopyTo(nextSpan);
@@ -1690,7 +1653,7 @@ namespace Refterm
                 //AppendOutput("Fast pipe: %s\n", EnableFastPipe ? "ON" : "off");
                 AppendOutput($"Font: {RequestedFontName} {RequestedFontHeight}\n");
                 AppendOutput($"Line Wrap: {(LineWrap ? "ON" : "off")}\n");
-                //AppendOutput("Debug: %s\n", DebugHighlighting ? "ON" : "off");
+                AppendOutput($"Debug: {(DebugHighlighting ? "ON" : "off")}\n");
                 //AppendOutput("Throttling: %s\n", !NoThrottle ? "ON" : "off");
             }
             //else if (command == "fastpipe")
@@ -1701,12 +1664,12 @@ namespace Refterm
             else if (command == "linewrap")
             {
                 LineWrap = !LineWrap;
-                AppendOutput("LineWrap: %s\n", LineWrap ? "ON" : "off");
+                AppendOutput($"LineWrap: {(LineWrap ? "ON" : "off")}\n");
             }
             else if (command == "debug")
             {
                 DebugHighlighting = !DebugHighlighting;
-                AppendOutput("Debug: %s\n", DebugHighlighting ? "ON" : "off");
+                AppendOutput($"Debug: {(DebugHighlighting ? "ON" : "off")}\n");
             }
             //else if (command == "throttle")
             //{
@@ -1715,15 +1678,10 @@ namespace Refterm
             //}
             else if (command == "font")
             {
-                //DWORD NullAt = MultiByteToWideChar(CP_UTF8, 0, B, (DWORD)(Terminal->CommandLineCount - ParamStart),
-                //                                   Terminal->RequestedFontName, ArrayCount(Terminal->RequestedFontName) - 1);
-
-                //RequestedFontName[NullAt] = 0;
-
                 RequestedFontName = new string(CommandLine.AsSpan(0..ParamStart));
 
                 RefreshFont();
-                AppendOutput("Font: %S\n", RequestedFontName);
+                AppendOutput($"Font: {RequestedFontName}\n");
             }
             else if (command == "fontsize")
             {
@@ -1739,13 +1697,12 @@ namespace Refterm
             else if ((command == "clear") ||
                     (command == "cls"))
             {
-                RunningCursor.ClearCursor();
                 for (var i = 0; i < Lines.Length; i++)
                 {
                     var line = Lines[i];
                     line.Clear(this);
                 }
-                //ScreenBuffer.Clear();
+
                 ScrollBackBuffer.Clear();
             }
             else if ((command == "exit") ||
@@ -1758,84 +1715,35 @@ namespace Refterm
             else if ((command == "echo") ||
                     (command == "print"))
             {
-                AppendOutput("%s\n", B);
+                AppendOutput($"{new string(B.Span)}\n");
             }
             else if (command == "")
             {
             }
             else
             {
-                //char ProcessName[ArrayCount(Terminal->CommandLine) + 1];
-                //char ProcessCommandLine[ArrayCount(Terminal->CommandLine) + 1];
                 var processName = $"{command}.exe";
 
                 var param = new string(CommandLine.AsSpan(ParamStart).ToArray().TakeWhile(x => x != '\0').ToArray());
                 var processCommandLine = $"{processName} {param}";
 
-                if (!ExecuteSubProcess(processName, param))
+                var started = ExecuteSubProcess(processName, param);
+                if (!started)
                 {
                     processName = "c:\\Windows\\System32\\cmd.exe";
                     processCommandLine = $"cmd.exe /c {new string(A.AsSpan())}.exe {new string(B.Span)}";
-                    if (!ExecuteSubProcess(processName, processCommandLine))
+                    if (!(started = ExecuteSubProcess(processName, processCommandLine)))
                     {
-                        AppendOutput("ERROR: Unable to execute %s\n", CommandLine);
+                        AppendOutput($"ERROR: Unable to execute {CommandLine}\n");
                     }
+                }
+
+                if (started)
+                {
+                    AppendOutput($"> {command} {param}{Environment.NewLine}");
                 }
             }
         }
-
-        //void ExecuteSubProcessLowLevel(string ProcessName, string ProcessCommandLine)
-        //{
-        //    var codePage = CultureInfo.CurrentCulture.TextInfo.OEMCodePage; //Console.OutputEncoding.CodePage
-        //    var encoding = Encoding.GetEncoding(codePage);
-        //    codePage = encoding.CodePage;
-        //    //startupInfoEx.StartupInfo.cb = Marshal.SizeOf(startupInfoEx);
-
-        //    const uint NORMAL_PRIORITY_CLASS = 0x0020;
-
-        //    bool retValue;
-        //    string Application = ProcessName; ;
-        //    string CommandLine = @$" {ProcessCommandLine}";
-        //    var pInfo = new NativeWindows.PROCESS_INFORMATION();
-        //    var sInfo = new NativeWindows.STARTUPINFOEX();
-        //    var pSec = new NativeWindows.SECURITY_ATTRIBUTES();
-        //    var tSec = new NativeWindows.SECURITY_ATTRIBUTES();
-        //    pSec.nLength = Marshal.SizeOf(pSec);
-        //    tSec.nLength = Marshal.SizeOf(tSec);
-
-        //    //Open Notepad
-        //    retValue = NativeWindows.CreateProcessEx(
-        //        Application,
-        //        CommandLine,
-        //        ref pSec,
-        //        ref tSec,
-        //        true,
-        //        NativeWindows.ProcessCreationFlags.CREATE_NO_WINDOW |
-        //            NativeWindows.ProcessCreationFlags.CREATE_SUSPENDED |
-        //            NativeWindows.ProcessCreationFlags.EXTENDED_STARTUPINFO_PRESENT,
-        //        IntPtr.Zero, null, ref sInfo, out pInfo);
-
-        //    if (retValue)
-        //    {
-        //        if (NativeWindows.AttachConsole(pInfo.dwProcessId))
-        //        {
-        //            NativeWindows.SetConsoleCP((uint)encoding.CodePage);
-        //            NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
-        //            var freed = NativeWindows.FreeConsole();
-        //        }
-        //        else
-        //        {
-        //            if (NativeWindows.AllocConsole())
-        //            {
-        //                NativeWindows.SetConsoleCP((uint)encoding.CodePage);
-        //                NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
-        //            }
-        //        }
-
-        //        NativeWindows.ResumeThread(pInfo.hThread);
-        //        NativeWindows.CloseHandle(pInfo.hThread);
-        //    }
-        //}
 
         bool ExecuteSubProcess(string ProcessName, string ProcessCommandLine)
         {
@@ -1844,38 +1752,8 @@ namespace Refterm
                 KillProcess();
             }
 
-            //PROCESS_INFORMATION ProcessInfo = { 0 };
-            //STARTUPINFOA StartupInfo = { sizeof(StartupInfo) };
-            //StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-
-            //SECURITY_ATTRIBUTES Inherit = { sizeof(Inherit) };
-            //Inherit.bInheritHandle = TRUE;
-
-            //CreatePipe(&StartupInfo.hStdInput, &Terminal->Legacy_WriteStdIn, &Inherit, 0);
-            //CreatePipe(&Terminal->Legacy_ReadStdOut, &StartupInfo.hStdOutput, &Inherit, 0);
-            //CreatePipe(&Terminal->Legacy_ReadStdError, &StartupInfo.hStdError, &Inherit, 0);
-
-            //SetHandleInformation(Terminal->Legacy_WriteStdIn, HANDLE_FLAG_INHERIT, 0);
-            //SetHandleInformation(Terminal->Legacy_ReadStdOut, HANDLE_FLAG_INHERIT, 0);
-            //SetHandleInformation(Terminal->Legacy_ReadStdError, HANDLE_FLAG_INHERIT, 0);
-
-            var codePage = CultureInfo.CurrentCulture.TextInfo.OEMCodePage; //Console.OutputEncoding.CodePage
+            var codePage = CultureInfo.CurrentCulture.TextInfo.OEMCodePage;
             var encoding = Encoding.GetEncoding(codePage);
-
-            //Console.OutputEncoding = encoding;
-            //Console.InputEncoding = encoding;
-            //var aaa = NativeWindows.GetConsoleCP();
-            //var bbb = NativeWindows.GetConsoleOutputCP();
-
-            //using var p = new Process();
-            //p.StartInfo = new ProcessStartInfo
-            //{
-            //    FileName = "chcp",
-            //    UseShellExecute = true,
-            //    Arguments = $"{encoding}",
-            //};
-            //p.Start();
-            //p.WaitForExit();
 
             var process = new Process();
             var ProcessDir = ".\\";
@@ -1894,33 +1772,11 @@ namespace Refterm
                 WorkingDirectory = ProcessDir,
                 LoadUserProfile = true
             };
-            process.StartInfo.EnvironmentVariables["LANG"] = $".{codePage}";
-            process.StartInfo.EnvironmentVariables["LC_COLLATE"] = $".{codePage}";
-            process.StartInfo.EnvironmentVariables["LC_ALL"] = $".{codePage}";
-            process.StartInfo.EnvironmentVariables["LC_CTYPE"] = $".{codePage}";
-            process.StartInfo.EnvironmentVariables["SESSIONNAME"] = $"Console";
 
             process.EnableRaisingEvents = true;
             //process.ErrorDataReceived += Process_OutputDataReceived;
             //process.OutputDataReceived += Process_OutputDataReceived;
             process.Exited += Process_Exited;
-
-
-            //if (!NativeWindows.SetConsoleCP((uint)encoding.CodePage))
-            //{
-            //    if (NativeWindows.AllocConsole())
-            //    {
-            //        //NativeWindows.AttachConsole(pInfo.dwProcessId)
-            //        NativeWindows.SetConsoleCP((uint)encoding.CodePage);
-            //        NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
-            //    }
-            //}
-            //else
-            //{
-            //    NativeWindows.SetConsoleCP((uint)encoding.CodePage);
-            //    NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
-
-            //}
 
             try
             {
@@ -1938,37 +1794,10 @@ namespace Refterm
                 return false;
             }
 
-            //if (NativeWindows.AttachConsole(process.Id))
-            //{
-            //    NativeWindows.SetConsoleCP((uint)encoding.CodePage);
-            //    NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
-            //    var freed = NativeWindows.FreeConsole();
-            //}
-            //else
-            //{
-            //    if (NativeWindows.AllocConsole())
-            //    {
-            //        NativeWindows.SetConsoleCP((uint)encoding.CodePage);
-            //        NativeWindows.SetConsoleOutputCP((uint)encoding.CodePage);
-            //    }
-            //}
-
-            //Ude.CharsetDetector cdet = new Ude.CharsetDetector();
-            //cdet.Feed(fs);
-            //cdet.DataEnd();
-            //if (cdet.Charset != null)
-            //{
-            //    Console.WriteLine("Charset: {0}, confidence: {1}",
-            //         cdet.Charset, cdet.Confidence);
-            //}
-            //else
-            //{
-            //    Console.WriteLine("Detection failed.");
-            //}
-
             //process.BeginOutputReadLine();
             //process.BeginErrorReadLine();
             ChildProcessCancellationTokenSource = new CancellationTokenSource();
+            var syncObj = process.SynchronizingObject;
 
             Task.Run(async () =>
             {
@@ -1977,21 +1806,14 @@ namespace Refterm
                     return;
                 }
                 var token = ChildProcessCancellationTokenSource.Token;
-                var buffer = new byte[10 * 1024];
-                //var memory = buffer.AsMemory();
-                Encoding detectedEncoding = null;
+                var buffer = new byte[4 * 1024];
+                Encoding detectedEncoding = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
                 var offset = 0;
-                //var cacheBuffer = new byte[10*1024];
-                //var cacheMemory = cacheBuffer.AsMemory();
 
                 var stream = ChildProcess.StandardOutput.BaseStream;
 
                 while (!token.IsCancellationRequested)
                 {
-                    //var readToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(16));
-
-                    //var registration = token.Register(() => readToken.Cancel());
-
                     try
                     {
                         int read = 0;
@@ -2002,57 +1824,24 @@ namespace Refterm
 
                             if (read > 0)
                             {
-                                //var data = buffer.AsSpan(0, read).ToArray();
-                                //outputTransferBinary.Enqueue(data);
-
                                 if (detectedEncoding is null)
                                 {
-                                    //Ude.CharsetDetector cdet = new Ude.CharsetDetector();
-                                    //cdet.Feed(buffer, offset, read);
-                                    //cdet.DataEnd();
-
-                                    //if (cdet.Charset != null &&
-                                    //    cdet.Confidence>0.6)
-                                    //{
-                                    //    detectedEncoding = Encoding.GetEncoding(cdet.Charset);
-                                    //}
-
-                                    //var res = UtfUnknown.CharsetDetector.DetectFromBytes(buffer);
-                                    //if (res.Detected is not null)
-                                    //{
-                                    //    detectedEncoding = res.Detected.Encoding;
-                                    //}
-                                    var nullCount = 0f;
-                                    var maxCheck = Math.Min(read, 256);
-                                    for (var i = 1; i < maxCheck; i += 2)
-                                    {
-                                        var value = buffer[i];
-                                        if (value == 0)
-                                        {
-                                            nullCount++;
-                                        }
-                                    }
-
-                                    if ((nullCount * 2) / maxCheck > 0.5 ||
-                                        (maxCheck >= 2 && buffer[0] == 255 && buffer[1] == 254))
-                                    {
-                                        detectedEncoding = Encoding.Unicode;
-                                    }
-                                    else if (maxCheck >= 3 &&
-                                        buffer[0] == 239 && buffer[1] == 187 && buffer[2] == 191)
-                                    {
-                                        encoding = Encoding.UTF8;
-                                    }
-                                    else
-                                    {
-                                        detectedEncoding = encoding;
-                                    }
+                                    detectedEncoding = TryDetectEncoding(encoding, buffer, read);
                                 }
 
                                 if (detectedEncoding is not null)
                                 {
-                                    var outputString = detectedEncoding.GetString(buffer, 0, offset + read);
-                                    outputTransfer.Enqueue(outputString);
+                                    var outputString = detectedEncoding.GetChars(buffer, 0, offset + read);
+                                    //outputTransfer.Enqueue(outputString);
+
+                                    if (syncObj?.InvokeRequired == true)
+                                    {
+                                        syncObj.Invoke((Action<char[]>)(o => AppendOutput((char[])o)), new[] { outputString });
+                                    }
+                                    else
+                                    {
+                                        AppendOutput(outputString);
+                                    }
 
                                     offset = 0;
                                 }
@@ -2064,10 +1853,6 @@ namespace Refterm
                     catch (Exception exc)
                     {
 
-                    }
-                    finally
-                    {
-                        //registration.Dispose();
                     }
 
                     if (token.IsCancellationRequested)
@@ -2082,48 +1867,39 @@ namespace Refterm
             ChildProcess = process;
 
             return true;
+        }
 
-            //int Result = 0;
+        private static Encoding TryDetectEncoding(Encoding encoding, byte[] buffer, int read)
+        {
+            Encoding detectedEncoding;
 
-            //char* ProcessDir = ".\\";
-            //if (CreateProcessA(
-            //    ProcessName,
-            //    ProcessCommandLine,
-            //    0,
-            //    0,
-            //    TRUE,
-            //    CREATE_NO_WINDOW | CREATE_SUSPENDED,
-            //    0,
-            //    ProcessDir,
-            //    &StartupInfo,
-            //    &ProcessInfo))
-            //{
-            //    //if (Terminal->EnableFastPipe)
-            //    //{
-            //    //    wchar_t PipeName[64];
-            //    //    wsprintfW(PipeName, L"\\\\.\\pipe\\fastpipe%x", ProcessInfo.dwProcessId);
-            //    //    Terminal->FastPipe = CreateNamedPipeW(PipeName, PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED, 0, 1,
-            //    //                                              Terminal->PipeSize, Terminal->PipeSize, 0, 0);
+            var nullCount = 0f;
+            var maxCheck = Math.Min(read, 256);
+            for (var i = 1; i < maxCheck; i += 2)
+            {
+                var value = buffer[i];
+                if (value == 0)
+                {
+                    nullCount++;
+                }
+            }
 
-            //    //    // TODO(casey): Should give this its own event / overlapped
-            //    //    ConnectNamedPipe(Terminal->FastPipe, &Terminal->FastPipeTrigger);
+            if ((nullCount * 2) / maxCheck > 0.5 ||
+                (maxCheck >= 2 && buffer[0] == 255 && buffer[1] == 254))
+            {
+                detectedEncoding = Encoding.Unicode;
+            }
+            else if (maxCheck >= 3 &&
+                buffer[0] == 239 && buffer[1] == 187 && buffer[2] == 191)
+            {
+                detectedEncoding = Encoding.UTF8;
+            }
+            else
+            {
+                detectedEncoding = encoding;
+            }
 
-            //    //    DWORD Error = GetLastError();
-            //    //    Assert(Error == ERROR_IO_PENDING);
-            //    //}
-
-            //    ResumeThread(ProcessInfo.hThread);
-            //    CloseHandle(ProcessInfo.hThread);
-            //    Terminal->ChildProcess = ProcessInfo.hProcess;
-
-            //    Result = 1;
-            //}
-
-            //CloseHandle(StartupInfo.hStdInput);
-            //CloseHandle(StartupInfo.hStdOutput);
-            //CloseHandle(StartupInfo.hStdError);
-
-            //return Result;
+            return detectedEncoding;
         }
 
         private void Process_Exited(object sender, EventArgs e)
@@ -2131,7 +1907,7 @@ namespace Refterm
             var lastOutput = (sender as Process).StandardOutput.ReadToEnd();
             if (lastOutput.Length > 0)
             {
-                outputTransfer.Append(lastOutput);
+                outputTransfer.Append(lastOutput.ToCharArray());
             }
             CloseProcess();
         }
@@ -2169,16 +1945,7 @@ namespace Refterm
             }
 
             ChildProcess?.Dispose();
-            //CloseHandle(Legacy_WriteStdIn);
-            //CloseHandle(Legacy_ReadStdOut);
-            //CloseHandle(Legacy_ReadStdError);
-            //CloseHandle(Terminal->FastPipe);
-
             ChildProcess = null;
-            //Legacy_WriteStdIn = null;
-            //Legacy_ReadStdOut = null;
-            //Legacy_ReadStdError = null;
-            //FastPipe = null;
         }
 
         static bool IsUTF8Extension(char A)
@@ -2194,11 +1961,6 @@ namespace Refterm
             // a real concatenator here, like with a #define system, but this is just
             // a hack for now to do basic printing from the internal code.
 
-            SourceBufferRange Dest = GetNextWritableRange(ScrollBackBuffer, LARGEST_AVAILABLE);
-            //va_list ArgList;
-            //va_start(ArgList, Format);
-            //int Used = wvsprintfA(Dest.Data, Format, ArgList);
-            //va_end(ArgList);
 
             string str;
 
@@ -2218,13 +1980,25 @@ namespace Refterm
                 }
             }
 
-            var used = str.Length;
+            AppendOutput(str.AsSpan());
+        }
 
-            str.AsSpan().CopyTo(Dest.Data.Span);
+        void AppendOutput(ReadOnlySpan<char> data)
+        {
+            var remaining = data.Length;
+            while (remaining > 0)
+            {
+                var Dest = GetNextWritableRange(ScrollBackBuffer, remaining);
+                //Dest.Count = Math.Min(ScrollBackBuffer.DataSize - ScrollBackBuffer.RelativePoint, remaining);
 
-            Dest.Count = used;
-            CommitWrite(ScrollBackBuffer, Dest.Count);
-            ParseLines(Dest, RunningCursor);
+                data.Slice(0, Dest.Count)
+                    .CopyTo(Dest.Data.Span);
+
+                CommitWrite(ScrollBackBuffer, Dest.Count);
+                ParseLines(Dest, RunningCursor);
+
+                remaining -= Dest.Count;
+            }
         }
 
         void ParseLines(SourceBufferRange Range, CursorState Cursor)
@@ -2526,12 +2300,22 @@ namespace Refterm
 
             var Result = new SourceBufferRange();
             Result.AbsoluteP = Buffer.AbsoluteFilledSize;
-            Result.Count = Buffer.DataSize;
+            Result.Count = Math.Min(MaxCount, Buffer.DataSize - Buffer.RelativePoint);
+
             Result.Data = Buffer.Data.Slice(Buffer.RelativePoint);
 
-            if (Result.Count > MaxCount)
+            if (Result.Count + Buffer.RelativePoint == Buffer.DataSize)
             {
-                Result.Count = MaxCount;
+
+            }
+            //if (Buffer.RelativePoint + Result.Count > Buffer.Data.Length)
+            if (Result.Count <= 0)
+            {
+                Buffer.RelativePoint = 0;
+
+                Buffer.Data = new Memory<char>(Buffer.InternalData);
+
+                Result.Count = Math.Min(Result.Count, Buffer.Data.Length);
             }
 
             return Result;
@@ -2567,7 +2351,6 @@ namespace Refterm
             GlyphTable = PlaceGlyphTableInMemory(parameters);
 
             InitializeDirectGlyphTable(parameters, ReservedTileTable, true);
-
 
             GlyphDim UnitDim = GetSingleTileUnitDim();
 
@@ -2635,59 +2418,6 @@ namespace Refterm
                 ++X;
             }
 
-            //GetAndClearStats(Result);
-
-            //if (Memory)
-            //{
-            //    // NOTE(casey): Always put the glyph_entry array at the base of the memory, because the
-            //    // compiler may generate aligned-SSE ops, which would crash if it was unaligned.
-            //    glyph_entry* Entries = (glyph_entry*)Memory;
-            //    Result = (glyph_table*)(Entries + Params.EntryCount);
-            //    Result->HashTable = (uint32_t*)(Result + 1);
-            //    Result->Entries = Entries;
-
-            //    Result->HashMask = Params.HashCount - 1;
-            //    Result->HashCount = Params.HashCount;
-            //    Result->EntryCount = Params.EntryCount;
-
-            //    memset(Result->HashTable, 0, Result->HashCount * sizeof(Result->HashTable[0]));
-
-            //    uint32_t StartingTile = Params.ReservedTileCount;
-
-            //    glyph_entry* Sentinel = GetSentinel(Result);
-            //    uint32_t X = StartingTile % Params.CacheTileCountInX;
-            //    uint32_t Y = StartingTile / Params.CacheTileCountInX;
-            //    for (uint32_t EntryIndex = 0;
-            //        EntryIndex < Params.EntryCount;
-            //        ++EntryIndex)
-            //    {
-            //        if (X >= Params.CacheTileCountInX)
-            //        {
-            //            X = 0;
-            //            ++Y;
-            //        }
-
-            //        glyph_entry* Entry = GetEntry(Result, EntryIndex);
-            //        if ((EntryIndex + 1) < Params.EntryCount)
-            //        {
-            //            Entry->NextWithSameHash = EntryIndex + 1;
-            //        }
-            //        else
-            //        {
-            //            Entry->NextWithSameHash = 0;
-            //        }
-            //        Entry->GPUIndex = PackGlyphCachePoint(X, Y);
-
-            //        Entry->FilledState = 0;
-            //        Entry->DimX = 0;
-            //        Entry->DimY = 0;
-
-            //        ++X;
-            //    }
-
-            //    GetAndClearStats(Result);
-            //}
-
             return Result;
         }
 
@@ -2732,10 +2462,6 @@ namespace Refterm
         {
             return b != 0 ? a / b : b;
         }
-        private int SafeRatio1(int a, int b)
-        {
-            return b != 0 ? a / b : b;
-        }
 
         bool SetFont(GlyphGenerator GlyphGen, string FontName, uint FontHeight)
         {
@@ -2746,8 +2472,6 @@ namespace Refterm
         bool DWriteSetFont(GlyphGenerator GlyphGen, string FontName, uint FontHeight)
         {
             var Result = false;
-
-            DWriteReleaseFont(GlyphGen);
 
             if (GlyphGen.DWriteFactory is not null)
             {
@@ -2808,15 +2532,6 @@ namespace Refterm
             }
         }
 
-        void DWriteReleaseFont(GlyphGenerator GlyphGen)
-        {
-            //if (GlyphGen.FontFace is not null)
-            //{
-            //    GlyphGen.FontFace.Release();
-            //    GlyphGen.FontFace = null;
-            //}
-        }
-
         public uint ArrayCount(GpuGlyphIndex[] array)
         {
             return (uint)array.Length;
@@ -2839,14 +2554,7 @@ namespace Refterm
 
             dataSize = (dataSize + info.dwAllocationGranularity - 1) & ~(info.dwAllocationGranularity - 1);
 
-            //var section = MemoryMappedFile.CreateNew("mapName", dataSize, MemoryMappedFileAccess.ReadWrite, MemoryMappedFileOptions.None, HandleInheritability.None);
-
-            //var accessor = section.CreateViewAccessor();
-
-
-            //var m = new Memory<char>(accessor.SafeMemoryMappedViewHandle.);
-
-            result.InternalData = new char[dataSize * 2];
+            result.InternalData = new char[dataSize];
             result.Data = new Memory<char>(result.InternalData);
             result.DataSize = (int)dataSize;
 
@@ -2874,8 +2582,8 @@ namespace Refterm
         {
             var renderer = new D3D11Renderer();
 
-            //var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded;
-            var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded | DeviceCreationFlags.Debug;
+            var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded;
+            //var flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.SingleThreaded | DeviceCreationFlags.Debug;
             if (enableDebugging)
             {
                 flags |= DeviceCreationFlags.Debug;
@@ -2953,9 +2661,6 @@ namespace Refterm
                 Scaling = Scaling.None,
                 AlphaMode = SharpDX.DXGI.AlphaMode.Ignore,
                 Flags = SwapChainFlags.FrameLatencyWaitAbleObject,
-                //ModeDescription = new ModeDescription(Format.B8G8R8A8_UNorm),
-                //OutputHandle = window,
-
             };
 
             using (var factory = new SharpDX.DXGI.Factory2())
