@@ -864,13 +864,13 @@ namespace Refterm
             return Result;
         }
 
-        void PrepareTilesForTransfer(GlyphGenerator GlyphGen, D3D11Renderer Renderer, int Count, string String, GlyphDim Dim)
+        void PrepareTilesForTransfer(GlyphGenerator GlyphGen, D3D11Renderer Renderer, int Count, ReadOnlySpan<char> String, GlyphDim Dim)
         {
             var StringLen = Count;
             //Assert(StringLen == Count);
-
+            
             //SharpDX.Direct2D1.RenderTarget
-            DWriteDrawText(GlyphGen, StringLen, String, 0, 0, GlyphGen.TransferWidth, GlyphGen.TransferHeight,
+            DWriteDrawText(GlyphGen, StringLen, String.ToString(), 0, 0, GlyphGen.TransferWidth, GlyphGen.TransferHeight,
                            Renderer.DWriteRenderTarget, Renderer.DWriteFillBrush, Dim.XScale, Dim.YScale);
         }
 
@@ -1018,7 +1018,7 @@ namespace Refterm
                     StrCount = Partitioner.Items[ItemIndex + 1].iCharPos - Item.iCharPos;
                 }
 
-                var Str = new string(unicodeString.AsSpan(Item.iCharPos, StrCount));
+                var Str = unicodeString.AsSpan(Item.iCharPos, StrCount).ToString();
 
                 var IsComplex = Uniscribe.NativeMethods.ScriptIsComplex(Str, StrCount, Uniscribe.Constants.SIC_COMPLEX) == Uniscribe.Constants.S_OK;
                 Uniscribe.NativeMethods.ScriptBreak(Str, StrCount, ref Item.a, Partitioner.Log);
@@ -1091,7 +1091,7 @@ namespace Refterm
 
                             var Prepped = false;
                             GlyphHash RunHash = ComputeGlyphHash(2 * ThisCount, Run, DefaultSeed);
-                            GlyphDim GlyphDim = GetGlyphDim(GlyphGen, GlyphTable, ThisCount, new string(Run), RunHash);
+                            GlyphDim GlyphDim = GetGlyphDim(GlyphGen, GlyphTable, ThisCount, Run, RunHash);
                             for (var TileIndex = 0u;
                                 TileIndex < GlyphDim.TileCount;
                                 ++TileIndex)
@@ -1105,7 +1105,7 @@ namespace Refterm
                                     {
                                         if (!Prepped)
                                         {
-                                            PrepareTilesForTransfer(GlyphGen, Renderer, ThisCount, new string(Run), GlyphDim);
+                                            PrepareTilesForTransfer(GlyphGen, Renderer, ThisCount, Run, GlyphDim);
                                             Prepped = true;
                                         }
 
@@ -1202,7 +1202,7 @@ namespace Refterm
         {
             var Result = new SIZE();
 
-            using var Layout = new TextLayout(GlyphGen.DWriteFactory, new string(String), GlyphGen.TextFormat, GlyphGen.TransferWidth, GlyphGen.TransferHeight);
+            using var Layout = new TextLayout(GlyphGen.DWriteFactory, String.ToString(), GlyphGen.TextFormat, GlyphGen.TransferWidth, GlyphGen.TransferHeight);
 
             if (Layout is not null)
             {
@@ -1535,7 +1535,7 @@ namespace Refterm
 
                                         if (CharCount > 0)
                                         {
-                                            var command = new string(Chars);
+                                            var command = Chars.AsSpan().ToString();
                                             var nextSpan = CommandLine.AsSpan(CommandLineCount);
                                             command.CopyTo(nextSpan);
                                             CommandLineCount += command.Length - 1;
@@ -1570,7 +1570,7 @@ namespace Refterm
                 B = B.Slice(1);
             }
 
-            var command = new string(CommandLine.AsSpan(0, ParamStart - 1));
+            var command = CommandLine.AsSpan(0, ParamStart - 1).ToString();
 
             SourceBufferRange ParamRange = new SourceBufferRange();
             ParamRange.Data = B;
@@ -1613,7 +1613,7 @@ namespace Refterm
             //}
             else if (command == "font")
             {
-                RequestedFontName = new string(CommandLine.AsSpan(0..ParamStart));
+                RequestedFontName = CommandLine.AsSpan(0..ParamStart).ToString();
 
                 RefreshFont();
                 AppendOutput($"Font: {RequestedFontName}\n");
@@ -1650,7 +1650,7 @@ namespace Refterm
             else if ((command == "echo") ||
                     (command == "print"))
             {
-                AppendOutput($"{new string(B.Span)}\n");
+                AppendOutput($"{B.Span.ToString()}\n");
             }
             else if (command == "")
             {
@@ -1666,7 +1666,7 @@ namespace Refterm
                 if (!started)
                 {
                     processName = "c:\\Windows\\System32\\cmd.exe";
-                    processCommandLine = $"cmd.exe /c {new string(A.AsSpan())}.exe {new string(B.Span)}";
+                    processCommandLine = $"cmd.exe /c {A.AsSpan().ToString()}.exe {B.Span.ToString()}";
                     if (!(started = ExecuteSubProcess(processName, processCommandLine)))
                     {
                         AppendOutput($"ERROR: Unable to execute {CommandLine}\n");
