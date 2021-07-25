@@ -38,11 +38,11 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)((this.bitvector1 & 65535u)));
+                return (this.bitvector1 & 65535u);
             }
             set
             {
-                this.bitvector1 = ((uint)((value | this.bitvector1)));
+                this.bitvector1 = (value | this.bitvector1);
             }
         }
 
@@ -50,13 +50,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 65536u)
-                            / 65536)));
+                return ((this.bitvector1 & 65536u)
+                            / 65536);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 65536)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 65536)
+                            | this.bitvector1);
             }
         }
 
@@ -64,13 +64,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 131072u)
-                            / 131072)));
+                return ((this.bitvector1 & 131072u)
+                            / 131072);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 131072)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 131072)
+                            | this.bitvector1);
             }
         }
 
@@ -78,13 +78,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 262144u)
-                            / 262144)));
+                return ((this.bitvector1 & 262144u)
+                            / 262144);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 262144)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 262144)
+                            | this.bitvector1);
             }
         }
 
@@ -92,13 +92,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 524288u)
-                            / 524288)));
+                return ((this.bitvector1 & 524288u)
+                            / 524288);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 524288)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 524288)
+                            | this.bitvector1);
             }
         }
 
@@ -106,13 +106,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 1048576u)
-                            / 1048576)));
+                return ((this.bitvector1 & 1048576u)
+                            / 1048576);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 1048576)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 1048576)
+                            | this.bitvector1);
             }
         }
 
@@ -120,13 +120,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 2097152u)
-                            / 2097152)));
+                return ((this.bitvector1 & 2097152u)
+                            / 2097152);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 2097152)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 2097152)
+                            | this.bitvector1);
             }
         }
 
@@ -134,13 +134,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 4194304u)
-                            / 4194304)));
+                return ((this.bitvector1 & 4194304u)
+                            / 4194304);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 4194304)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 4194304)
+                            | this.bitvector1);
             }
         }
 
@@ -148,13 +148,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 8388608u)
-                            / 8388608)));
+                return ((this.bitvector1 & 8388608u)
+                            / 8388608);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 8388608)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 8388608)
+                            | this.bitvector1);
             }
         }
 
@@ -162,13 +162,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 16777216u)
-                            / 16777216)));
+                return ((this.bitvector1 & 16777216u)
+                            / 16777216);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 16777216)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 16777216)
+                            | this.bitvector1);
             }
         }
 
@@ -176,13 +176,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 33554432u)
-                            / 33554432)));
+                return ((this.bitvector1 & 33554432u)
+                            / 33554432);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 33554432)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 33554432)
+                            | this.bitvector1);
             }
         }
 
@@ -190,13 +190,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 4227858432u)
-                            / 67108864)));
+                return ((this.bitvector1 & 4227858432u)
+                            / 67108864);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 67108864)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 67108864)
+                            | this.bitvector1);
             }
         }
     }
@@ -773,11 +773,11 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)((this.bitvector1 & 65535u)));
+                return (this.bitvector1 & 65535u);
             }
             set
             {
-                this.bitvector1 = ((uint)((value | this.bitvector1)));
+                this.bitvector1 = (value | this.bitvector1);
             }
         }
 
@@ -785,13 +785,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 65536u)
-                            / 65536)));
+                return ((this.bitvector1 & 65536u)
+                            / 65536);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 65536)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 65536)
+                            | this.bitvector1);
             }
         }
 
@@ -799,13 +799,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 131072u)
-                            / 131072)));
+                return ((this.bitvector1 & 131072u)
+                            / 131072);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 131072)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 131072)
+                            | this.bitvector1);
             }
         }
 
@@ -813,13 +813,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 262144u)
-                            / 262144)));
+                return ((this.bitvector1 & 262144u)
+                            / 262144);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 262144)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 262144)
+                            | this.bitvector1);
             }
         }
 
@@ -827,13 +827,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 524288u)
-                            / 524288)));
+                return ((this.bitvector1 & 524288u)
+                            / 524288);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 524288)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 524288)
+                            | this.bitvector1);
             }
         }
 
@@ -841,13 +841,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 267386880u)
-                            / 1048576)));
+                return ((this.bitvector1 & 267386880u)
+                            / 1048576);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 1048576)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 1048576)
+                            | this.bitvector1);
             }
         }
 
@@ -855,13 +855,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 268435456u)
-                            / 268435456)));
+                return ((this.bitvector1 & 268435456u)
+                            / 268435456);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 268435456)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 268435456)
+                            | this.bitvector1);
             }
         }
 
@@ -869,13 +869,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 536870912u)
-                            / 536870912)));
+                return ((this.bitvector1 & 536870912u)
+                            / 536870912);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 536870912)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 536870912)
+                            | this.bitvector1);
             }
         }
 
@@ -883,13 +883,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 1073741824u)
-                            / 1073741824)));
+                return ((this.bitvector1 & 1073741824u)
+                            / 1073741824);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 1073741824)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 1073741824)
+                            | this.bitvector1);
             }
         }
 
@@ -897,13 +897,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 2147483648u)
-                            / 2147483648)));
+                return ((this.bitvector1 & 2147483648u)
+                            / 2147483648);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 2147483648)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 2147483648)
+                            | this.bitvector1);
             }
         }
 
@@ -1034,11 +1034,11 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)((this.bitvector1 & 65535u)));
+                return (this.bitvector1 & 65535u);
             }
             set
             {
-                this.bitvector1 = ((uint)((value | this.bitvector1)));
+                this.bitvector1 = (value | this.bitvector1);
             }
         }
 
@@ -1046,13 +1046,13 @@ namespace Refterm.Uniscribe
         {
             get
             {
-                return ((uint)(((this.bitvector1 & 4294901760u)
-                            / 65536)));
+                return ((this.bitvector1 & 4294901760u)
+                            / 65536);
             }
             set
             {
-                this.bitvector1 = ((uint)(((value * 65536)
-                            | this.bitvector1)));
+                this.bitvector1 = ((value * 65536)
+                            | this.bitvector1);
             }
         }
 

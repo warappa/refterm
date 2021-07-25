@@ -2,7 +2,7 @@
 {
     public class GlyphCachePoint
     {
-        public uint X;
-        public uint Y;
+        public uint X { get; set; }
+        public uint Y { get; set; }
     }
 }

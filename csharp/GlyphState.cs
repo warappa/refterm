@@ -2,14 +2,13 @@
 {
     public class GlyphState
     {
-        //public uint ID;
-        public GpuGlyphIndex GPUIndex;
+        public GpuGlyphIndex GPUIndex { get; set; }
 
         // NOTE(casey): Technically these two values can be whatever you want.
-        public GlyphEntryState FilledState;
-        public uint DimX;
-        public uint DimY;
+        public GlyphEntryState FilledState { get; set; }
+        public uint DimX { get; set; }
+        public uint DimY { get; set; }
 
-        public GlyphEntry Entry { get; internal set; }
+        public GlyphEntry Entry { get; set; }
     }
 }

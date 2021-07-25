@@ -2,10 +2,10 @@
 {
     public class Line
     {
-        public ulong FirstP;
-        public ulong OnePastLastP;
-        public bool ContainsComplexChars;
-        public GlyphProps StartingProps = new GlyphProps();
+        public ulong FirstP { get; set; }
+        public ulong OnePastLastP { get; set; }
+        public bool ContainsComplexChars { get; set; }
+        public GlyphProps StartingProps { get; set; } = new GlyphProps();
 
         public void Clear(Terminal terminal)
         {

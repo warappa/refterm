@@ -1,34 +1,48 @@
-﻿using System;
+﻿using SharpDX;
+using System;
 
 namespace Refterm
 {
-    class SourceBuffer
+    public class SourceBuffer
     {
-        public int DataSize;
+        public SourceBuffer(int dataSize)
+        {
+            this.backingBuffer = new char[dataSize];
+            Data = backingBuffer;
+            DataSize = dataSize;
+        }
 
+        public int DataSize { get; private set; }
 
         /// <summary>
         /// char*
         /// </summary>
-        public Memory<char> Data;
+        public Memory<char> Data { get; private set; }
 
         // NOTE(casey): For circular buffer
-        public int RelativePoint;
+        public int RelativePoint { get; set; }
 
         // NOTE(casey): For cache checking
-        public ulong AbsoluteFilledSize;
+        public ulong AbsoluteFilledSize { get; set; }
 
-        public char[] InternalData { get; internal set; }
+        public char[] backingBuffer { get; private set; }
 
         internal void Clear()
         {
             AbsoluteFilledSize = 0;
             RelativePoint = 0;
 
-            for (var i = 0; i < InternalData.Length; i++)
+            var len = backingBuffer.Length;
+
+            for (var i = 0; i < len; i++)
             {
-                InternalData[i] = '\0';
+                backingBuffer[i] = '\0';
             }
+        }
+
+        public void Reset()
+        {
+            RelativePoint = 0;
         }
     }
 }

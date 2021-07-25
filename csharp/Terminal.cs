@@ -4,12 +4,9 @@ using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.DirectWrite;
 using SharpDX.DXGI;
-using SharpDX.WIC;
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -25,114 +22,96 @@ namespace Refterm
 {
     public class Terminal
     {
-        static byte[] OpeningMessage = new byte[] { 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0x82, 0x2C, 0x20, 0xE0, 0xA4, 0xB2, 0xE0, 0xA5, 0x87, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x86, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0x96, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xAE, 0xE0, 0xA5, 0x82, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0xA6, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0xE0, 0xA4, 0xA8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0x85, 0xE0, 0xA4, 0xAD, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0xE0, 0xA4, 0xAF, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0xE0, 0xA4, 0x8F, 0xE0, 0xA4, 0x82, 0xE0, 0xA4, 0x97, 0xE0, 0xA5, 0x87, 0x20, 0x7C, 0x20, (byte)'\n' };
+        private static byte[] OpeningMessage = new byte[] { 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xA4, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0x82, 0x2C, 0x20, 0xE0, 0xA4, 0xB2, 0xE0, 0xA5, 0x87, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x86, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0x96, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0xAE, 0xE0, 0xA5, 0x82, 0xE0, 0xA4, 0x81, 0xE0, 0xA4, 0xA6, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x8B, 0xE0, 0xA4, 0xA8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0x85, 0xE0, 0xA4, 0xAD, 0xE0, 0xA4, 0xBF, 0xE0, 0xA4, 0xA8, 0xE0, 0xA4, 0xAF, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA4, 0xB0, 0x20, 0xE0, 0xA4, 0xB0, 0xE0, 0xA4, 0xB9, 0xE0, 0xA4, 0xBE, 0x20, 0xE0, 0xA4, 0xB9, 0xE0, 0xA5, 0x8B, 0x20, 0xE0, 0xA4, 0x89, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x95, 0xE0, 0xA5, 0x88, 0xE0, 0xA4, 0xB8, 0xE0, 0xA5, 0x87, 0x20, 0xE0, 0xA4, 0x9C, 0xE0, 0xA4, 0x97, 0xE0, 0xA4, 0xBE, 0xE0, 0xA4, 0x8F, 0xE0, 0xA4, 0x82, 0xE0, 0xA4, 0x97, 0xE0, 0xA5, 0x87, 0x20, 0x7C, 0x20, (byte)'\n' };
 
-        const int LARGEST_AVAILABLE = int.MaxValue - 1;
+        public uint DefaultForegroundColor { get; private set; } = 0x00afafaf;
+        public uint DefaultBackgroundColor { get; private set; } = 0x000c0c0c;
 
-        private ConcurrentQueue<char[]> outputTransfer = new ConcurrentQueue<char[]>();
-        public bool LineWrap { get; set; } = true;
-        public Process? ChildProcess { get; set; }
-        public String StandardIn { get; set; }
-        public String StandardOut { get; set; }
-        public String StandardError { get; set; }
-        public uint DefaultForegroundColor { get; set; } = 0x00afafaf;
-        public uint DefaultBackgroundColor { get; set; } = 0x000c0c0c;
-        public int PipeSize { get; set; } = 16 * 1024 * 1024;
+        private bool lineWrap = true;
+        private CursorState runningCursor;
 
-        private IntPtr threadHandle;
-        private IntPtr window;
+        private Process? childProcess;
+        private CancellationTokenSource childProcessCancellationTokenSource;
 
-        public CursorState RunningCursor { get; set; }
-        public int TextureWidth { get; set; }
-        public int TextureHeight { get; set; }
-        public uint TransferWidth { get; }
-        public uint TransferHeight { get; }
-        public uint MaxWidth { get; }
-        public uint MaxHeight { get; }
-        public D3D11Renderer Renderer { get; }
-        public GlyphGenerator GlyphGen { get; }
-        internal SourceBuffer ScrollBackBuffer { get; }
+        private SourceBuffer ScrollBackBuffer { get; }
+        private const int scrollBackBufferSize = 16 * 1024 * 1024;
 
-        // TODO: Initialize!
-        public byte[] CssShaderBytes { get; private set; } = Shaders.ReftermCShaderBytes;
-        public byte[] PSShaderBytes { get; private set; } = Shaders.ReftermPSShaderBytes;
-        public byte[] VSShaderBytes { get; private set; } = Shaders.ReftermVSShaderBytes;
+        private D3D11Renderer renderer;
+        private int textureWidth;
+        private int textureHeight;
+        private uint transferWidth;
+        private uint transferHeight;
+        private uint maxWidth;
+        private uint maxHeight;
+        private byte[] computeShaderBytes = Shaders.ReftermCShaderBytes;
+        private byte[] pixelShaderBytes = Shaders.ReftermPSShaderBytes;
+        private byte[] vertexShaderBytes = Shaders.ReftermVSShaderBytes;
 
-        public Partitioner Partitioner { get; private set; }
-        public int MaxLineCount { get; }
-        public Line[] Lines { get; }
-        public string RequestedFontName { get; private set; }
-        public int RequestedFontHeight { get; private set; }
-        public const int MinDirectCodepoint = 32;
-        public const int MaxDirectCodepoint = 126;
-        public GpuGlyphIndex[] ReservedTileTable { get; set; } = new GpuGlyphIndex[MaxDirectCodepoint - MinDirectCodepoint];
-        public bool Quit { get; private set; }
-        public long ViewingLineOffset { get; private set; }
-        public bool DebugHighlighting { get; private set; }
-        public char LastChar { get; private set; }
-        public CancellationTokenSource ChildProcessCancellationTokenSource { get; private set; }
+        private GlyphGenerator glyphGen;
+        private const int minDirectCodepoint = 32;
+        private const int maxDirectCodepoint = 126;
+        private Partitioner partitioner;
+        private int maxLineCount;
+        private Line[] lines;
+        private int currentLineIndex = 0;
+        private string requestedFontName;
+        private int requestedFontHeight;
+        private GpuGlyphIndex[] reservedTileTable = new GpuGlyphIndex[maxDirectCodepoint - minDirectCodepoint];
+        private GlyphTable glyphTable;
+        private static byte[] OverhangMask = new byte[32]
+        {
+            255, 255, 255, 255,  255, 255, 255, 255,  255, 255, 255, 255,  255, 255, 255, 255,
+            0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
+        };
+
+        private TerminalBuffer screenBuffer;
+        private bool quit;
+        private long viewingLineOffset;
+        private bool debugHighlighting;
+        private char lastChar;
         private DateTime lastOutput = DateTime.MinValue;
-
-        int CommandLineCount = 0;
-
-        public int LineCount = 0;
-
-        public int CurrentLineIndex = 0;
-        public TerminalBuffer ScreenBuffer;
-
-        GlyphTable GlyphTable;
-
-        private char[] CommandLine = new char[256];
+        private char[] commandLine = new char[256];
+        private int commandLineCount = 0;
         private char[] promptBuffer = new char[] { '>', ' ' };
         private char[] cursorBuffer = null;
-
-        static char[] DefaultSeed = new int[16]
-            {
-                178, 201, 95, 240, 40, 41, 143, 216,
-                2, 209, 178, 114, 232, 4, 176, 188
-            }
-            .Select(x => (char)x)
-            .ToArray();
-
-        bool shouldLayoutLines = true;
+        private int lineCount = 0;
+        private bool shouldLayoutLines = true;
 
         public Terminal(IntPtr window)
         {
-            this.threadHandle = (IntPtr)NativeWindows.GetCurrentThreadId();
-            this.window = window;
-            LineWrap = true;
+            lineWrap = true;
 
-            RunningCursor = new CursorState(this);
-            ScreenBuffer = new TerminalBuffer(this);
+            runningCursor = new CursorState(this);
+            screenBuffer = new TerminalBuffer(this, 0, 0);
 
-            Partitioner = new Partitioner();
+            partitioner = new Partitioner();
 
-            TextureWidth = 4 * 2048;
-            TextureHeight = 4 * 2048;
-            //TransferWidth = 1024;
-            //TransferHeight = 512;
-            TransferWidth = (uint)TextureWidth;
-            TransferHeight = (uint)TextureHeight;
-            MaxWidth = 1024;
-            MaxHeight = 1024;
+            textureWidth = 4 * 2048;
+            textureHeight = 4 * 2048;
+            //transferWidth = 1024;
+            //transferHeight = 512;
+            transferWidth = (uint)textureWidth;
+            transferHeight = (uint)textureHeight;
+            maxWidth = 1024;
+            maxHeight = 1024;
 
-            Renderer = AcquireD3D11Renderer(window, true);
+            renderer = AcquireD3D11Renderer(window, true);
 
-            Renderer.SetD3D11GlyphCacheDim(TextureWidth, TextureHeight);
-            Renderer.SetD3D11GlyphTransferDim(TransferWidth, TransferHeight);
+            renderer.SetD3D11GlyphCacheDim(textureWidth, textureHeight);
+            renderer.SetD3D11GlyphTransferDim(transferWidth, transferHeight);
 
-            GlyphGen = AllocateGlyphGenerator(TransferWidth, TransferHeight, Renderer.GlyphTransferSurface);
-            ScrollBackBuffer = AllocateSourceBuffer(PipeSize);
+            glyphGen = AllocateGlyphGenerator(transferWidth, transferHeight);
+            ScrollBackBuffer = AllocateSourceBuffer(scrollBackBufferSize);
 
-            Uniscribe.NativeMethods.ScriptRecordDigitSubstitution(Uniscribe.Defaults.LOCALE_USER_DEFAULT, out Partitioner.UniscribeDigitSubstitution);
-            Uniscribe.NativeMethods.ScriptApplyDigitSubstitution(ref Partitioner.UniscribeDigitSubstitution, out Partitioner.UniControl, out Partitioner.UniState);
+            Uniscribe.NativeMethods.ScriptRecordDigitSubstitution(Uniscribe.Defaults.LOCALE_USER_DEFAULT, out partitioner.UniscribeDigitSubstitution);
+            Uniscribe.NativeMethods.ScriptApplyDigitSubstitution(ref partitioner.UniscribeDigitSubstitution, out partitioner.UniControl, out partitioner.UniState);
 
-            MaxLineCount = 8192;
-            Lines = new Line[MaxLineCount];
+            maxLineCount = 8192;
+            lines = new Line[maxLineCount];
 
-            for (var i = 0; i < MaxLineCount; i++)
+            for (var i = 0; i < maxLineCount; i++)
             {
-                Lines[i] = new Line();
+                lines[i] = new Line();
             }
 
             RevertToDefaultFont();
@@ -140,7 +119,7 @@ namespace Refterm
 
             NativeWindows.ShowWindow(window, NativeWindows.ShowWindowOption.SW_SHOWDEFAULT);
 
-            Lines[0].StartingProps = RunningCursor.Props;
+            lines[0].StartingProps = runningCursor.Props;
             AppendOutput($"Refterm v{Assembly.GetExecutingAssembly().GetName().Version}\n");
             AppendOutput("THIS IS \x1b[38;2;255;0;0m\x1b[5mNOT\x1b[0m A REAL \x1b[9mTERMINAL\x1b[0m.\r\n" +
                 "It is a reference renderer for demonstrating how to easily build relatively efficient terminal displays.\r\n" +
@@ -151,14 +130,12 @@ namespace Refterm
             AppendOutput(Encoding.UTF8.GetString(OpeningMessage));
             AppendOutput("\n");
 
-            var BlinkMS = 500; // TODO(casey): Use this in blink determination
-            int MinTermSize = 512;
-            int Width = MinTermSize;
-            int Height = MinTermSize;
+            var blinkMS = 500; // TODO(casey): Use this in blink determination
+            var minTermSize = 512;
+            var width = minTermSize;
+            var height = minTermSize;
 
-            char LastChar = '\0';
-
-            while (!Quit)
+            while (!quit)
             {
                 //if (!Terminal->NoThrottle)
                 //{
@@ -173,42 +150,41 @@ namespace Refterm
 
                 ProcessMessages();
 
-                NativeWindows.RECT Rect;
-                NativeWindows.GetClientRect(window, out Rect);
+                NativeWindows.RECT clientRectangle;
+                NativeWindows.GetClientRect(window, out clientRectangle);
 
-                if (((Rect.Left + MinTermSize) <= Rect.Right) &&
-                   ((Rect.Top + MinTermSize) <= Rect.Bottom))
+                if (((clientRectangle.Left + minTermSize) <= clientRectangle.Right) &&
+                   ((clientRectangle.Top + minTermSize) <= clientRectangle.Bottom))
                 {
-                    Width = Rect.Right - Rect.Left;
-                    Height = Rect.Bottom - Rect.Top;
+                    width = clientRectangle.Right - clientRectangle.Left;
+                    height = clientRectangle.Bottom - clientRectangle.Top;
 
-                    uint Margin = 8;
-                    uint NewDimX = SafeRatio1((uint)Width - Margin, GlyphGen.FontWidth);
-                    uint NewDimY = SafeRatio1((uint)Height - Margin, GlyphGen.FontHeight);
-                    if (NewDimX > MaxWidth)
+                    var margin = 8;
+                    var newDimX = (uint)SafeRatio1((uint)width - margin, glyphGen.FontWidth);
+                    var newDimY = (uint)SafeRatio1((uint)height - margin, glyphGen.FontHeight);
+                    if (newDimX > maxWidth)
                     {
-                        NewDimX = MaxWidth;
+                        newDimX = maxWidth;
                     }
-                    if (NewDimY > MaxHeight)
+                    if (newDimY > maxHeight)
                     {
-                        NewDimY = MaxHeight;
+                        newDimY = maxHeight;
                     }
 
                     // TODO(casey): Maybe only allocate on size differences,
                     // etc. Make a real resize function here for people who care.
-                    if ((ScreenBuffer.DimX != NewDimX) ||
-                       (ScreenBuffer.DimY != NewDimY))
+                    if ((screenBuffer.DimX != newDimX) ||
+                       (screenBuffer.DimY != newDimY))
                     {
-                        DeallocateTerminalBuffer(ScreenBuffer);
-                        ScreenBuffer = AllocateTerminalBuffer(NewDimX, NewDimY);
-
+                        DeallocateTerminalBuffer(screenBuffer);
+                        screenBuffer = AllocateTerminalBuffer(newDimX, newDimY);
                     }
                 }
 
                 while (!shouldLayoutLines)
                 {
                     var ms = (DateTime.UtcNow - lastOutput).TotalMilliseconds;
-                    if (ms > BlinkMS)
+                    if (ms > blinkMS)
                     {
                         shouldLayoutLines = true;
                     }
@@ -221,15 +197,15 @@ namespace Refterm
                 // TODO(casey): Split RendererDraw into two!
                 // Update, and render, since we only need to update if we actually get new input.
 
-                var Blink = DateTime.UtcNow.Millisecond > BlinkMS;
-                if (Renderer.Device is null)
+                var blink = DateTime.UtcNow.Millisecond > blinkMS;
+                if (renderer.Device is null)
                 {
-                    Renderer = AcquireD3D11Renderer(window, false);
+                    renderer = AcquireD3D11Renderer(window, false);
                     RefreshFont();
                 }
-                if (Renderer.Device is not null)
+                if (renderer.Device is not null)
                 {
-                    RendererDraw((uint)Width, (uint)Height, ScreenBuffer, Blink ? 0xffffffff : 0xff222222);
+                    RendererDraw((uint)width, (uint)height, screenBuffer, blink ? 0xffffffff : 0xff222222);
                 }
                 //++FrameIndex;
                 //++FrameCount;
@@ -263,8 +239,8 @@ namespace Refterm
                 //}
             }
 
-            DWriteRelease(GlyphGen);
-            ReleaseD3D11Renderer(Renderer);
+            DWriteRelease(glyphGen);
+            ReleaseD3D11Renderer();
 
             // TODO(casey): How do we actually do an ensured-kill here?  Like even if we crash?  Is there some kind
             // of process parameter we can pass to CreateProcess that will ensure it is killed?  Because this won't.
@@ -286,238 +262,209 @@ namespace Refterm
             GlyphGen.DWriteFactory = null;
         }
 
-        static void ReleaseD3D11RenderTargets(D3D11Renderer Renderer)
+        private void ReleaseD3D11RenderTargets()
         {
-            Renderer.RenderView?.Dispose();
-            Renderer.RenderView = null;
+            renderer.RenderView?.Dispose();
+            renderer.RenderView = null;
 
-            Renderer.RenderTarget?.Dispose();
-            Renderer.RenderTarget = null;
+            renderer.RenderTarget?.Dispose();
+            renderer.RenderTarget = null;
         }
 
-        void RendererDraw(uint Width, uint Height, TerminalBuffer Term, uint BlinkModulate)
+        private void RendererDraw(uint width, uint height, TerminalBuffer term, uint blinkModulate)
         {
             // TODO(casey): This should be split into two routines now, since we don't actually
             // need to resubmit anything if the terminal hasn't updated.
 
-            GlyphTable Table = GlyphTable;
-            //D3D11Renderer Renderer = &Terminal->Renderer;
-            //GlyphGenerator GlyphGen = &Terminal->GlyphGen;
-            SourceBuffer Source = ScrollBackBuffer;
-
             // resize RenderView to match window size
-            if (Width != Renderer.CurrentWidth || Height != Renderer.CurrentHeight)
+            if (width != renderer.CurrentWidth || height != renderer.CurrentHeight)
             {
-                Renderer.DeviceContext.ClearState();
+                renderer.DeviceContext.ClearState();
 
-                ReleaseD3D11RenderTargets(Renderer);
+                ReleaseD3D11RenderTargets();
 
-                Renderer.DeviceContext.Flush();
+                renderer.DeviceContext.Flush();
 
-                if (Width != 0 && Height != 0)
+                if (width != 0 && height != 0)
                 {
-                    Renderer.SwapChain.ResizeBuffers(0, (int)Width, (int)Height, Format.Unknown, SwapChainFlags.FrameLatencyWaitAbleObject);
+                    renderer.SwapChain.ResizeBuffers(0, (int)width, (int)height, Format.Unknown, SwapChainFlags.FrameLatencyWaitAbleObject);
 
-                    //ID3D11Texture2D* Buffer;
-
-                    using (var Buffer = Renderer.SwapChain.GetBackBuffer<Texture2D>(0))
+                    using (var buffer = renderer.SwapChain.GetBackBuffer<Texture2D>(0))
                     {
-                        Buffer.DebugName = "BackBuffer Texture";
-                        //hr = IDXGISwapChain_GetBuffer(Renderer.SwapChain, 0, &IID_ID3D11Texture2D, (void**)&Buffer);
-                        //AssertHR(hr);
+                        buffer.DebugName = "BackBuffer Texture";
 
-                        if (Renderer.UseComputeShader)
+                        if (renderer.UseComputeShader)
                         {
-                            Renderer.RenderView = new UnorderedAccessView(Renderer.Device, Buffer);
-                            //hr = ID3D11Device_CreateUnorderedAccessView(Renderer.Device, (ID3D11Resource*)Buffer, 0, &Renderer.RenderView);
-                            //AssertHR(hr);
+                            renderer.RenderView = new UnorderedAccessView(renderer.Device, buffer);
                         }
                         else
                         {
-                            Renderer.RenderTarget = new RenderTargetView(Renderer.Device, Buffer);
-                            Renderer.RenderTarget.DebugName = "RenderTarget";
-                            //hr = ID3D11Device_CreateRenderTargetView(Renderer.Device, (ID3D11Resource*)Buffer, 0, &Renderer.RenderTarget);
-                            //AssertHR(hr);
+                            renderer.RenderTarget = new RenderTargetView(renderer.Device, buffer);
+                            renderer.RenderTarget.DebugName = "RenderTarget";
 
-                            var ViewPort = new SharpDX.Mathematics.Interop.RawViewportF
+                            var viewPort = new SharpDX.Mathematics.Interop.RawViewportF
                             {
                                 X = 0,
                                 Y = 0,
-                                Width = (float)Width,
-                                Height = (float)Height
+                                Width = width,
+                                Height = height
                             };
 
-                            Renderer.DeviceContext.Rasterizer.SetViewports(new[] { ViewPort }, 1);
-                            Renderer.DeviceContext.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
+                            renderer.DeviceContext.Rasterizer.SetViewports(new[] { viewPort }, 1);
+                            renderer.DeviceContext.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
                         }
                     }
                 }
 
-                Renderer.CurrentWidth = Width;
-                Renderer.CurrentHeight = Height;
+                renderer.CurrentWidth = width;
+                renderer.CurrentHeight = height;
             }
 
             //var CellCount = Renderer.CurrentWidth * Renderer.CurrentHeight;
-            var CellCount = Term.DimX * Term.DimY;
-            if (Renderer.MaxCellCount < CellCount)
+            var cellCount = term.DimX * term.DimY;
+            if (renderer.MaxCellCount < cellCount)
             {
-                SetD3D11MaxCellCount(Renderer, CellCount);
+                SetD3D11MaxCellCount(cellCount);
             }
 
-            if (Renderer.RenderView is not null ||
-                Renderer.RenderTarget is not null)
+            if (renderer.RenderView is not null ||
+                renderer.RenderTarget is not null)
             {
-                var dataBox = Renderer.DeviceContext.MapSubresource(Renderer.ConstantBuffer, 0,
-                    MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out var Mapped);
-                //hr = ID3D11DeviceContext_Map(Renderer.DeviceContext, (ID3D11Resource*)Renderer.ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-                //AssertHR(hr);
+                renderer.DeviceContext.MapSubresource(renderer.ConstantBuffer, 0,
+                    MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out var mapped);
+
+                var constData = new RendererConstBuffer
                 {
-                    var ConstData = new RendererConstBuffer
-                    {
-                        CellSizeX = GlyphGen.FontWidth,
-                        CellSizeY = GlyphGen.FontHeight,
-                        TermSizeX = Term.DimX,
-                        TermSizeY = Term.DimY,
-                        TopMargin = 8,
-                        LeftMargin = 8,
-                        BlinkModulate = BlinkModulate,
-                        MarginColor = 0x000c0c0c,
+                    CellSizeX = glyphGen.FontWidth,
+                    CellSizeY = glyphGen.FontHeight,
+                    TermSizeX = term.DimX,
+                    TermSizeY = term.DimY,
+                    TopMargin = 8,
+                    LeftMargin = 8,
+                    BlinkModulate = blinkModulate,
+                    MarginColor = 0x000c0c0c,
 
-                        StrikeMin = GlyphGen.FontHeight / 2 - GlyphGen.FontHeight / 10,
-                        StrikeMax = GlyphGen.FontHeight / 2 + GlyphGen.FontHeight / 10,
-                        UnderlineMin = GlyphGen.FontHeight - GlyphGen.FontHeight / 5,
-                        UnderlineMax = GlyphGen.FontHeight,
-                    };
-                    Mapped.Write(ConstData);
-                }
-                Renderer.DeviceContext.UnmapSubresource(Renderer.ConstantBuffer, 0);
+                    StrikeMin = glyphGen.FontHeight / 2 - glyphGen.FontHeight / 10,
+                    StrikeMax = glyphGen.FontHeight / 2 + glyphGen.FontHeight / 10,
+                    UnderlineMin = glyphGen.FontHeight - glyphGen.FontHeight / 5,
+                    UnderlineMax = glyphGen.FontHeight,
+                };
+                mapped.Write(constData);
 
-                var dataBox2 = Renderer.DeviceContext.MapSubresource(Renderer.CellBuffer, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out Mapped);
-                //hr = ID3D11DeviceContext_Map(Renderer.DeviceContext, (ID3D11Resource*)Renderer.CellBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-                //AssertHR(hr);
-                {
-                    var Cells = Mapped;
+                renderer.DeviceContext.UnmapSubresource(renderer.ConstantBuffer, 0);
 
-                    var TopCellCount = Term.DimX * (Term.DimY - Term.FirstLineY);
-                    var BottomCellCount = Term.DimX * (Term.FirstLineY);
-                    //Assert((TopCellCount + BottomCellCount) == (Term.DimX * Term.DimY));
+                renderer.DeviceContext.MapSubresource(renderer.CellBuffer, 0, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out mapped);
 
-                    Cells.WriteRange(
-                        Term.Cells,
-                        (int)(Term.FirstLineY * Term.DimX),
-                        (int)(TopCellCount));
+                var topCellCount = term.DimX * (term.DimY - term.FirstLineY);
+                var bottomCellCount = term.DimX * (term.FirstLineY);
 
-                    Cells.WriteRange(Term.Cells, 0, (int)BottomCellCount);
-                }
-                Renderer.DeviceContext.UnmapSubresource(Renderer.CellBuffer, 0);
+                mapped.WriteRange(
+                    term.Cells,
+                    (int)(term.FirstLineY * term.DimX),
+                    (int)(topCellCount));
+
+                mapped.WriteRange(term.Cells, 0, (int)bottomCellCount);
+
+                renderer.DeviceContext.UnmapSubresource(renderer.CellBuffer, 0);
 
                 // this should match t0/t1 order in hlsl shader
-                var Resources = new[] { Renderer.CellView, Renderer.GlyphTextureView };
+                var Resources = new[] { renderer.CellView, renderer.GlyphTextureView };
 
-                if (Renderer.UseComputeShader)
+                if (renderer.UseComputeShader)
                 {
                     // this issues compute shader for window size, which in real terminal should match its size
-                    Renderer.DeviceContext.ComputeShader.SetConstantBuffers(0, 1, Renderer.ConstantBuffer);
-                    Renderer.DeviceContext.ComputeShader.SetShaderResources(0, Resources);
-                    Renderer.DeviceContext.ComputeShader.SetUnorderedAccessViews(0, Renderer.RenderView);
-                    //ID3D11DeviceContext_CSSetUnorderedAccessViews(Renderer.DeviceContext, 0, 1, &Renderer.RenderView, NULL);
-                    Renderer.DeviceContext.ComputeShader.SetShader(Renderer.ComputeShader, null, 0);
-                    //ID3D11DeviceContext_CSSetShader(Renderer.DeviceContext, Renderer.ComputeShader, 0, 0);
-                    Renderer.DeviceContext.Dispatch((int)(Renderer.CurrentWidth + 7) / 8, (int)(Renderer.CurrentHeight + 7) / 8, 1);
+                    renderer.DeviceContext.ComputeShader.SetConstantBuffers(0, 1, renderer.ConstantBuffer);
+                    renderer.DeviceContext.ComputeShader.SetShaderResources(0, Resources);
+                    renderer.DeviceContext.ComputeShader.SetUnorderedAccessViews(0, renderer.RenderView);
+                    renderer.DeviceContext.ComputeShader.SetShader(renderer.ComputeShader, null, 0);
+
+                    renderer.DeviceContext.Dispatch((int)(renderer.CurrentWidth + 7) / 8, (int)(renderer.CurrentHeight + 7) / 8, 1);
                 }
                 else
                 {
                     // NOTE(casey): This MUST be set every frame, because PAGE FLIPPING, I guess :/
-                    Renderer.DeviceContext.OutputMerger.SetRenderTargets(Renderer.RenderTarget);
-                    //ID3D11DeviceContext_OMSetRenderTargets(Renderer.DeviceContext, 1, &Renderer.RenderTarget, 0);
+                    renderer.DeviceContext.OutputMerger.SetRenderTargets(renderer.RenderTarget);
+                    renderer.DeviceContext.PixelShader.SetConstantBuffers(0, 1, renderer.ConstantBuffer);
+                    renderer.DeviceContext.PixelShader.SetShaderResources(0, Resources);
+                    renderer.DeviceContext.VertexShader.SetShader(renderer.VertexShader, null, 0);
+                    renderer.DeviceContext.PixelShader.SetShader(renderer.PixelShader, null, 0);
 
-                    Renderer.DeviceContext.PixelShader.SetConstantBuffers(0, 1, Renderer.ConstantBuffer);
-                    Renderer.DeviceContext.PixelShader.SetShaderResources(0, Resources);
-                    Renderer.DeviceContext.VertexShader.SetShader(Renderer.VertexShader, null, 0);
-                    Renderer.DeviceContext.PixelShader.SetShader(Renderer.PixelShader, null, 0);
-                    Renderer.DeviceContext.Draw(4, 0);
+                    renderer.DeviceContext.Draw(4, 0);
                 }
             }
 
-            var Vsync = false;
-            var presentResult = Renderer.SwapChain.Present(Vsync ? 1 : 0, PresentFlags.None);
+            var vsync = false;
+            var presentResult = renderer.SwapChain.Present(vsync ? 1 : 0, PresentFlags.None);
 
-            //hr = IDXGISwapChain1_Present(Renderer.SwapChain, Vsync ? 1 : 0, 0);
             if ((presentResult == SharpDX.DXGI.ResultCode.DeviceReset) ||
                 (presentResult == SharpDX.DXGI.ResultCode.DeviceRemoved))
             {
                 //Assert(!"Device lost!");
-                ReleaseD3D11Renderer(Renderer);
-            }
-            else
-            {
-                //AssertHR(hr);
+                ReleaseD3D11Renderer();
             }
 
-            if (Renderer.RenderView is not null)
+            if (renderer.RenderView is not null)
             {
-                Renderer.DeviceContext1.DiscardView(Renderer.RenderView);
-                //ID3D11DeviceContext1_DiscardView(Renderer.DeviceContext1, (ID3D11View*)Renderer.RenderView);
+                renderer.DeviceContext1.DiscardView(renderer.RenderView);
             }
         }
 
-        static void ReleaseD3D11Renderer(D3D11Renderer Renderer)
+        private void ReleaseD3D11Renderer()
         {
             // TODO(casey): When you want to release a D3D11 device, do you have to release all the sub-components?
             // Can you just release the main device and have all the sub-components release themselves?
 
-            ReleaseD3DCellBuffer(Renderer);
-            ReleaseD3DGlyphCache(Renderer);
-            ReleaseD3DGlyphTransfer(Renderer);
-            ReleaseD3D11RenderTargets(Renderer);
+            ReleaseD3DCellBuffer();
+            ReleaseD3DGlyphCache();
+            ReleaseD3DGlyphTransfer();
+            ReleaseD3D11RenderTargets();
 
-            Renderer.FrameLatencyWaitableObject = IntPtr.Zero;
+            renderer.FrameLatencyWaitableObject = IntPtr.Zero;
 
-            Renderer.ComputeShader?.Dispose();
-            Renderer.PixelShader?.Dispose();
-            Renderer.VertexShader?.Dispose();
+            renderer.ComputeShader?.Dispose();
+            renderer.PixelShader?.Dispose();
+            renderer.VertexShader?.Dispose();
 
-            Renderer.ConstantBuffer?.Dispose();
+            renderer.ConstantBuffer?.Dispose();
 
-            Renderer.RenderView?.Dispose();
-            Renderer.SwapChain?.Dispose();
+            renderer.RenderView?.Dispose();
+            renderer.SwapChain?.Dispose();
 
-            Renderer.DeviceContext?.Dispose();
-            Renderer.DeviceContext1?.Dispose();
-            Renderer.Device?.Dispose();
+            renderer.DeviceContext?.Dispose();
+            renderer.DeviceContext1?.Dispose();
+            renderer.Device?.Dispose();
 
-            D3D11Renderer ZeroRenderer = new D3D11Renderer();
-            Renderer = ZeroRenderer;
+            var zeroRenderer = new D3D11Renderer();
+            renderer = zeroRenderer;
         }
 
-        static void ReleaseD3DGlyphTransfer(D3D11Renderer Renderer)
+        private void ReleaseD3DGlyphTransfer()
         {
-            Renderer.ReleaseD3DGlyphTransfer();
+            renderer.ReleaseD3DGlyphTransfer();
         }
 
-        static void ReleaseD3DGlyphCache(D3D11Renderer Renderer)
+        private void ReleaseD3DGlyphCache()
         {
-            if (Renderer.GlyphTexture is not null)
+            if (renderer.GlyphTexture is not null)
             {
-                Renderer.GlyphTexture.Dispose();
-                Renderer.GlyphTexture = null;
+                renderer.GlyphTexture.Dispose();
+                renderer.GlyphTexture = null;
             }
 
-            if (Renderer.GlyphTextureView is not null)
+            if (renderer.GlyphTextureView is not null)
             {
-                Renderer.GlyphTextureView.Dispose();
-                Renderer.GlyphTextureView = null;
+                renderer.GlyphTextureView.Dispose();
+                renderer.GlyphTextureView = null;
             }
         }
 
-        static void SetD3D11MaxCellCount(D3D11Renderer Renderer, uint Count)
+        private void SetD3D11MaxCellCount(uint Count)
         {
-            ReleaseD3DCellBuffer(Renderer);
+            ReleaseD3DCellBuffer();
 
-            if (Renderer.Device is not null)
+            if (renderer.Device is not null)
             {
-
-                var CellBufferDesc = new BufferDescription
+                var cellBufferDesc = new BufferDescription
                 {
                     SizeInBytes = (int)Count * Marshal.SizeOf<RendererCell>(),
                     //ByteWidth = Count * sizeof(renderer_cell),
@@ -528,40 +475,38 @@ namespace Refterm
                     StructureByteStride = Marshal.SizeOf<RendererCell>(),
                 };
 
-                Renderer.CellBuffer = new SharpDX.Direct3D11.Buffer(Renderer.Device, CellBufferDesc);
-                Renderer.CellBuffer.DebugName = "CellBuffer";
-                //if (SUCCEEDED(ID3D11Device_CreateBuffer(Renderer.Device, &CellBufferDesc, 0, &Renderer.CellBuffer)))
+                renderer.CellBuffer = new SharpDX.Direct3D11.Buffer(renderer.Device, cellBufferDesc);
+                renderer.CellBuffer.DebugName = "CellBuffer";
+
+                var cellViewDesc = new ShaderResourceViewDescription
                 {
-                    var CellViewDesc = new ShaderResourceViewDescription
+                    Dimension = ShaderResourceViewDimension.Buffer,
+                    Buffer = new ShaderResourceViewDescription.BufferResource
                     {
-                        Dimension = ShaderResourceViewDimension.Buffer,
-                        Buffer = new ShaderResourceViewDescription.BufferResource
-                        {
-                            FirstElement = 0,
-                            ElementCount = (int)Count
-                        }
-                    };
+                        FirstElement = 0,
+                        ElementCount = (int)Count
+                    }
+                };
 
-                    Renderer.CellView = new ShaderResourceView(Renderer.Device, Renderer.CellBuffer, CellViewDesc);
-                    Renderer.CellView.DebugName = "CellView";
-                }
+                renderer.CellView = new ShaderResourceView(renderer.Device, renderer.CellBuffer, cellViewDesc);
+                renderer.CellView.DebugName = "CellView";
 
-                Renderer.MaxCellCount = Count;
+                renderer.MaxCellCount = Count;
             }
         }
 
-        static void ReleaseD3DCellBuffer(D3D11Renderer Renderer)
+        private void ReleaseD3DCellBuffer()
         {
-            if (Renderer.CellBuffer is not null)
+            if (renderer.CellBuffer is not null)
             {
-                Renderer.CellBuffer.Dispose();
-                Renderer.CellBuffer = null;
+                renderer.CellBuffer.Dispose();
+                renderer.CellBuffer = null;
             }
 
-            if (Renderer.CellView is not null)
+            if (renderer.CellView is not null)
             {
-                Renderer.CellView.Dispose();
-                Renderer.CellView = null;
+                renderer.CellView.Dispose();
+                renderer.CellView = null;
             }
         }
 
@@ -571,61 +516,61 @@ namespace Refterm
             // TODO(casey): Probably want to do something better here - this over-clears, since we clear
             // the whole thing and then also each line, for no real reason other than to make line wrapping
             // simpler.
-            ScreenBuffer.Clear();
+            screenBuffer.Clear();
 
             //
             // TODO(casey): This code is super bad, and there's no need for it to keep repeating itself.
             //
 
             // TODO(casey): How do we know how far back to go, for control chars?
-            var LineCount = 2 * ScreenBuffer.DimY;
-            var LineOffset = CurrentLineIndex + ViewingLineOffset - LineCount;
+            var lineCount = 2 * screenBuffer.DimY;
+            var lineOffset = currentLineIndex + viewingLineOffset - lineCount;
 
-            var CursorJumped = false;
+            var cursorJumped = false;
 
-            CursorState Cursor = new CursorState(this);
-            Cursor.ClearCursor();
+            var cursor = new CursorState(this);
+            cursor.ClearCursor();
 
-            for (var LineIndexIndex = 0; LineIndexIndex < LineCount; ++LineIndexIndex)
+            for (var lineIndexIndex = 0; lineIndexIndex < lineCount; ++lineIndexIndex)
             {
-                var LineIndex = (LineOffset + LineIndexIndex) % MaxLineCount;
-                if (LineIndex < 0)
+                var lineIndex = (lineOffset + lineIndexIndex) % maxLineCount;
+                if (lineIndex < 0)
                 {
-                    LineIndex += MaxLineCount;
+                    lineIndex += maxLineCount;
                 }
 
-                var Line = Lines[LineIndex];
+                var line = lines[lineIndex];
 
-                var remaining = (int)(Line.OnePastLastP - Line.FirstP);
+                var remaining = (int)(line.OnePastLastP - line.FirstP);
                 var consumed = 0;
                 while (remaining > 0)
                 {
-                    var Range = ReadSourceAt(ScrollBackBuffer, Line.FirstP + (ulong)consumed, remaining);
-                    if (Range.Count == 0)
+                    var range = ReadSourceAt(ScrollBackBuffer, line.FirstP + (ulong)consumed, remaining);
+                    if (range.Count == 0)
                     {
                         break;
                     }
-                    Cursor.Props = Line.StartingProps;
-                    if (ParseLineIntoGlyphs(ref Range, Cursor, Line.ContainsComplexChars))
+                    cursor.Props = line.StartingProps;
+                    if (ParseLineIntoGlyphs(ref range, cursor, line.ContainsComplexChars))
                     {
-                        CursorJumped = true;
+                        cursorJumped = true;
                     }
 
-                    var cc = Range.Count;
+                    var cc = range.Count;
 
                     remaining = cc;
                     consumed = cc;
                 }
             }
 
-            if (CursorJumped)
+            if (cursorJumped)
             {
-                Cursor.Position.X = 0;
-                Cursor.Position.Y = ScreenBuffer.DimY - 4;
+                cursor.Position.X = 0;
+                cursor.Position.Y = screenBuffer.DimY - 4;
             }
 
-            AdvanceRow(Cursor.Position);
-            Cursor.ClearProps();
+            AdvanceRow(cursor.Position);
+            cursor.ClearProps();
 
 #if false
     uint32_t CLCount = Terminal->CommandLineCount;
@@ -636,21 +581,21 @@ namespace Refterm
     CommandLineRange.Data = (char *)Terminal->CommandLine;
 #else
 #endif
-            SourceBufferRange PromptRange = GetPromptBufferRange();
-            ParseLineIntoGlyphs(ref PromptRange, Cursor, false);
+            var promptRange = GetPromptBufferRange();
+            ParseLineIntoGlyphs(ref promptRange, cursor, false);
 
-            SourceBufferRange CommandLineRange = new SourceBufferRange();
-            CommandLineRange.Count = (int)CommandLineCount;
-            CommandLineRange.Data = new Memory<char>(CommandLine, 0, CommandLineCount);
-            ParseLineIntoGlyphs(ref CommandLineRange, Cursor, true);
+            var commandLineRange = new SourceBufferRange();
+            commandLineRange.Count = commandLineCount;
+            commandLineRange.Data = new Memory<char>(commandLine, 0, commandLineCount);
+            ParseLineIntoGlyphs(ref commandLineRange, cursor, true);
 
-            SourceBufferRange CursorRange = GetCursorBufferRange();
-            ParseLineIntoGlyphs(ref CursorRange, Cursor, true);
-            AdvanceRowNoClear(Cursor.Position);
+            var cursorRange = GetCursorBufferRange();
+            ParseLineIntoGlyphs(ref cursorRange, cursor, true);
+            AdvanceRowNoClear(cursor.Position);
 
-            RunningCursor.ClearCursor();
+            runningCursor.ClearCursor();
 
-            ScreenBuffer.FirstLineY = CursorJumped ? 0 : Cursor.Position.Y;
+            screenBuffer.FirstLineY = cursorJumped ? 0 : cursor.Position.Y;
         }
 
         private SourceBufferRange GetCursorBufferRange()
@@ -679,35 +624,35 @@ namespace Refterm
             return promptBufferRange;
         }
 
-        bool ParseLineIntoGlyphs(ref SourceBufferRange Range,
-                                CursorState Cursor, bool ContainsComplexChars)
+        private bool ParseLineIntoGlyphs(ref SourceBufferRange range,
+                                CursorState cursor, bool containsComplexChars)
         {
-            var CursorJumped = false;
+            var cursorJumped = false;
 
-            while (Range.Count > 0)
+            while (range.Count > 0)
             {
-                var span = Range.Data.Span;
+                var span = range.Data.Span;
 
                 // NOTE(casey): Eat all non-Unicode
-                char Peek = PeekToken(span, 0);
+                var Peek = PeekToken(span, 0);
                 if ((Peek == '\x1b') && AtEscape(span))
                 {
-                    if (ParseEscape(ref Range, Cursor))
+                    if (ParseEscape(ref range, cursor))
                     {
-                        CursorJumped = true;
+                        cursorJumped = true;
                     }
                 }
                 else if (Peek == '\r')
                 {
-                    GetToken(ref Range);
-                    Cursor.Position.X = 0;
+                    GetToken(ref range);
+                    cursor.Position.X = 0;
                 }
                 else if (Peek == '\n')
                 {
-                    GetToken(ref Range);
-                    AdvanceRow(Cursor.Position);
+                    GetToken(ref range);
+                    AdvanceRow(cursor.Position);
                 }
-                else if (ContainsComplexChars)
+                else if (containsComplexChars)
                 {
                     /* TODO(casey): Currently, if you have a long line that force-splits, it will not
                        recombine properly with Unicode.  I _DO NOT_ think this should be fixed in
@@ -730,7 +675,7 @@ namespace Refterm
 
                     //// NOTE(casey): Pass the range between the escape codes to Uniscribe
 
-                    var data = Range.Data.Span;
+                    var data = range.Data.Span;
                     var len = data.Length;
                     var index = 1; // must read at least 1
                     while (index < len)
@@ -746,78 +691,68 @@ namespace Refterm
                         index++;
                     }
 
-                    var subRange = new SourceBufferRange(Range, index);
-                    ParseWithUniscribe(subRange, Cursor);
-                    Range.Skip(subRange.Count);
+                    var subRange = new SourceBufferRange(range, index);
+                    ParseWithUniscribe(subRange, cursor);
+                    range.Skip(subRange.Count);
                 }
                 else
                 {
                     // NOTE(casey): It's not an escape, and we know there are only simple characters on the line.
 
-                    char CodePoint = GetToken(ref Range);
-                    ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
+                    var codePoint = GetToken(ref range);
+                    ref var cell = ref GetCell(screenBuffer, cursor.Position);
 
-                    //if (Cell is null)
+                    GpuGlyphIndex gpuIndex;
+                    if (IsDirectCodepoint(codePoint))
                     {
-                        GpuGlyphIndex GPUIndex = new GpuGlyphIndex();
-                        if (IsDirectCodepoint(CodePoint))
+                        gpuIndex = reservedTileTable[codePoint - minDirectCodepoint];
+                    }
+                    else
+                    {
+                        //Assert(CodePoint <= 127);
+                        var RunHash = ComputeGlyphHash(2, codePoint);
+                        var State = FindGlyphEntryByHash(glyphTable, RunHash);
+
+
+                        if (State.FilledState != GlyphEntryState.Rasterized)
                         {
-                            GPUIndex = ReservedTileTable[CodePoint - MinDirectCodepoint];
-                        }
-                        else
-                        {
-                            //Assert(CodePoint <= 127);
-                            GlyphHash RunHash = ComputeGlyphHash(2, CodePoint, DefaultSeed);
-                            GlyphState State = FindGlyphEntryByHash(GlyphTable, RunHash);
+                            PrepareTilesForTransfer(1, codePoint.ToString(), GetSingleTileUnitDim());
 
+                            TransferTile(0, State.GPUIndex);
 
-                            if (State.FilledState != GlyphEntryState.Rasterized)
-                            {
-                                PrepareTilesForTransfer(GlyphGen, Renderer, 1, CodePoint.ToString(), GetSingleTileUnitDim());
-
-                                TransferTile(GlyphGen, Renderer, 0, State.GPUIndex);
-
-                                UpdateGlyphCacheEntry(GlyphTable, State.Entry, GlyphEntryState.Rasterized, State.DimX, State.DimY);
-                            }
-
-                            GPUIndex = State.GPUIndex;
+                            UpdateGlyphCacheEntry(State.Entry, GlyphEntryState.Rasterized, State.DimX, State.DimY);
                         }
 
-                        if (GPUIndex.Value != 31 &&
-                            GPUIndex.Value != 32 &&
-                            GPUIndex.Value != 1 &&
-                            GPUIndex.Value != 0)
-                        {
-
-                        }
-                        SetCellDirect(GPUIndex, Cursor.Props, ref Cell);
+                        gpuIndex = State.GPUIndex;
                     }
 
-                    AdvanceColumn(Cursor.Position);
+                    SetCellDirect(gpuIndex, cursor.Props, ref cell);
+
+                    AdvanceColumn(cursor.Position);
                 }
             }
 
-            return CursorJumped;
+            return cursorJumped;
         }
 
-        static void UpdateGlyphCacheEntry(GlyphTable Table, GlyphEntry Entry, GlyphEntryState NewState, uint NewDimX, uint NewDimY)
+        static void UpdateGlyphCacheEntry(GlyphEntry entry, GlyphEntryState newState, uint newDimX, uint newDimY)
         {
             //GlyphEntry Entry = GetEntry(Table, ID);
 
-            Entry.FilledState = NewState;
-            Entry.DimX = NewDimX;
-            Entry.DimY = NewDimY;
+            entry.FilledState = newState;
+            entry.DimX = newDimX;
+            entry.DimY = newDimY;
         }
 
-        static ref GlyphEntry GetEntry(GlyphTable Table, uint Index)
+        private static ref GlyphEntry GetEntry(GlyphTable table, uint index)
         {
             //Assert(Index < Table->EntryCount);
-            return ref Table.Entries[Index];
+            return ref table.Entries[index];
         }
 
-        static GlyphDim GetSingleTileUnitDim()
+        private static GlyphDim GetSingleTileUnitDim()
         {
-            GlyphDim Result = new GlyphDim
+            var Result = new GlyphDim
             {
                 TileCount = 1,
                 XScale = 1.0f,
@@ -826,7 +761,7 @@ namespace Refterm
             return Result;
         }
 
-        void TransferTile(GlyphGenerator GlyphGen, D3D11Renderer Renderer, uint TileIndex, GpuGlyphIndex DestIndex)
+        private void TransferTile(uint tileIndex, GpuGlyphIndex destIndex)
         {
             /* TODO(casey):
 
@@ -854,98 +789,77 @@ namespace Refterm
                we should warn about that and revert the font size to something smaller?
             */
 
-            if (Renderer.DeviceContext is not null)
+            if (renderer.DeviceContext is not null)
             {
-                GlyphCachePoint Point = UnpackGlyphCachePoint(DestIndex);
-                var X = (int)(Point.X * GlyphGen.FontWidth);
-                var Y = (int)(Point.Y * GlyphGen.FontHeight);
+                var point = UnpackGlyphCachePoint(destIndex);
+                var x = (int)(point.X * glyphGen.FontWidth);
+                var y = (int)(point.Y * glyphGen.FontHeight);
 
                 var sourceBox = new ResourceRegion(
-                    (int)(TileIndex * GlyphGen.FontWidth), 0, 0,
-                    (int)((TileIndex + 1) * GlyphGen.FontWidth),
-                    (int)GlyphGen.FontHeight, 1);
+                    (int)(tileIndex * glyphGen.FontWidth), 0, 0,
+                    (int)((tileIndex + 1) * glyphGen.FontWidth),
+                    (int)glyphGen.FontHeight, 1);
 
                 try
                 {
-                    Renderer.DeviceContext.CopySubresourceRegion(Renderer.GlyphTransfer, 0,
-                        sourceBox, Renderer.GlyphTexture, 0, X, Y, 0);
+                    renderer.DeviceContext.CopySubresourceRegion(renderer.GlyphTransfer, 0,
+                        sourceBox, renderer.GlyphTexture, 0, x, y, 0);
                 }
                 catch (Exception exc)
                 {
-                    Console.WriteLine($"GPU index failed: {DestIndex.Value}");
-                }
-                finally
-                {
-                    var a = NativeWindows.GetLastError();
+                    Console.WriteLine($"GPU index failed: {destIndex.Value}");
                 }
             }
         }
 
-        static GlyphCachePoint UnpackGlyphCachePoint(GpuGlyphIndex P)
+        private static GlyphCachePoint UnpackGlyphCachePoint(GpuGlyphIndex index)
         {
-            GlyphCachePoint Result = new GlyphCachePoint();
+            var result = new GlyphCachePoint();
 
-            Result.X = P.Value & 0xffff;
-            Result.Y = P.Value >> 16;
+            result.X = index.Value & 0xffff;
+            result.Y = index.Value >> 16;
 
-            return Result;
+            return result;
         }
 
-        void PrepareTilesForTransfer(GlyphGenerator GlyphGen, D3D11Renderer Renderer, int Count, ReadOnlySpan<char> String, GlyphDim Dim)
+        private void PrepareTilesForTransfer(int count, ReadOnlySpan<char> str, GlyphDim dim)
         {
-            var StringLen = Count;
             //Assert(StringLen == Count);
-            
+
             //SharpDX.Direct2D1.RenderTarget
-            DWriteDrawText(GlyphGen, StringLen, String.ToString(), 0, 0, GlyphGen.TransferWidth, GlyphGen.TransferHeight,
-                           Renderer.DWriteRenderTarget, Renderer.DWriteFillBrush, Dim.XScale, Dim.YScale);
+            DWriteDrawText(str.Slice(0, count).ToString(), 0, 0, glyphGen.TransferWidth, glyphGen.TransferHeight,
+                           renderer.DWriteRenderTarget, renderer.DWriteFillBrush, dim.XScale, dim.YScale);
         }
 
-        void DWriteDrawText(GlyphGenerator GlyphGen, int StringLen, string String,
-                               uint Left, uint Top, uint Right, uint Bottom,
-                               RenderTarget RenderTarget,
-                               SolidColorBrush FillBrush,
-                               float XScale, float YScale)
+        private void DWriteDrawText(string str,
+                               uint left, uint top, uint right, uint bottom,
+                               RenderTarget renderTarget,
+                               SolidColorBrush fillBrush,
+                               float xScale, float yScale)
         {
-            SharpDX.Mathematics.Interop.RawRectangleF Rect = new SharpDX.Mathematics.Interop.RawRectangleF();
+            var rect = new SharpDX.Mathematics.Interop.RawRectangleF();
 
-            Rect.Left = (float)Left;
-            Rect.Top = (float)Top;
-            Rect.Right = (float)Right;
-            Rect.Bottom = (float)Bottom;
+            rect.Left = left;
+            rect.Top = top;
+            rect.Right = right;
+            rect.Bottom = bottom;
 
-            RenderTarget.Transform = Matrix3x2.Scaling(XScale, YScale, new Vector2(0, 0));
+            renderTarget.Transform = Matrix3x2.Scaling(xScale, yScale, new Vector2(0, 0));
 
-            RenderTarget.BeginDraw();
-            RenderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 0));
-            RenderTarget.DrawText(String, StringLen, GlyphGen.TextFormat, Rect, FillBrush,
+            renderTarget.BeginDraw();
+            renderTarget.Clear(new SharpDX.Mathematics.Interop.RawColor4(1, 1, 1, 0));
+
+            renderTarget.DrawText(str, str.Length, glyphGen.TextFormat, rect, fillBrush,
                 DrawTextOptions.Clip | DrawTextOptions.EnableColorFont,
                 MeasuringMode.Natural);
-            //RenderTarget.DrawEllipse(
-            //                new SharpDX.Direct2D1.Ellipse
-            //                {
-            //                    RadiusX = 100,
-            //                    RadiusY = 100,
-            //                    Point = new SharpDX.Mathematics.Interop.RawVector2(28, 28)
-            //                },
-            //                FillBrush
-            //                );
 
-            RenderTarget.Flush();
-            RenderTarget.EndDraw();
-
-
-
-            //if (!SUCCEEDED(Error))
-            //{
-            //    Assert(!"EndDraw failed");
-            //}
+            renderTarget.EndDraw();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static GlyphHash ComputeGlyphHash(int Count, char At, char[] Seedx16)
+        private static GlyphHash ComputeGlyphHash(int count, char at)
         {
-            var code = HashCode.Combine(Count, At);
+            var code = HashCode.Combine(count, at);
 
             return new GlyphHash
             {
@@ -953,18 +867,18 @@ namespace Refterm
             };
         }
 
-        static GlyphHash ComputeGlyphHash(int Count, ReadOnlySpan<char> At, char[] Seedx16)
+        private static GlyphHash ComputeGlyphHash(int count, ReadOnlySpan<char> at)
         {
-            var len = At.Length;
+            var len = at.Length;
             if (len == 0)
             {
-                return ComputeGlyphHash(Count, At, Seedx16);
+                return ComputeGlyphHash(count, at);
             }
 
-            int code = 0;
+            var code = 0;
             for (var i = 0; i < len; i++)
             {
-                code = HashCode.Combine(Count, code, At[i]);
+                code = HashCode.Combine(count, code, at[i]);
             }
 
             return new GlyphHash
@@ -973,7 +887,7 @@ namespace Refterm
             };
         }
 
-        void ParseWithUniscribe(SourceBufferRange UTF8Range, CursorState Cursor)
+        private void ParseWithUniscribe(SourceBufferRange utf8Range, CursorState cursor)
         {
             /* TODO(casey): This code is absolutely horrible - Uniscribe is basically unusable as an API, because it doesn't support
                a clean state-machine way of feeding things to it.  So I don't even know how you would really use it in a way
@@ -988,268 +902,226 @@ namespace Refterm
                That's all we need here, and it could be done very efficiently with sensible code.
             */
 
-            //example_partitioner* Partitioner = Partitioner;
-            //var utf8RawBytes = (byte[])UTF8Range.Data;// .ToArray().Take(UTF8Range.Count).TakeWhile(x => x != '\0').ToArray();
-            //var sourceString = new string();
-            //var sourceBytes = UTF8Range.Data.ToArray().TakeWhile(x => x != '\0').ToArray();
-            //var utf8Bytes = Encoding.UTF8.GetBytes(sourceString);
-            //byte[] unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, utf8Bytes);
-            //var unicodeString = Encoding.Unicode.GetString((byte*)UTF8Range.Data.Pin().Pointer, UTF8Range.Count);
-
-            //var unicodeString = new string(UTF8Range.Data.Span.ToArray().Take(UTF8Range.Count).TakeWhile(x => x != '\0').ToArray());
-            //string unicodeString = null;
-            //unsafe
-            //{
-            //    using (var pin = UTF8Range.Data.Pin())
-            //    {
-
-            //        unicodeString = Encoding.Unicode.GetString((byte*)pin.Pointer, 
-            //            //Encoding.Unicode.GetByteCount(UTF8Range.Data.Span)
-            //            UTF8Range.Count);
-            //    }
-            //}
-            var spanBytes = MemoryMarshal.Cast<char, byte>(UTF8Range.Data.Span.Slice(0, (int)UTF8Range.Count));
-
-            //var utf8String = new string(UTF8Range.Data.Span.Slice(0, UTF8Range.Count));
-            //var unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, spanBytes.ToArray());
-
-            //var Count = MultiByteToWideChar(CP_UTF8, 0, UTF8Range.Data, (DWORD)UTF8Range.Count,
-            //                                  Partitioner->Expansion, ArrayCount(Partitioner->Expansion));
+            var spanBytes = MemoryMarshal.Cast<char, byte>(utf8Range.Data.Span.Slice(0, utf8Range.Count));
 
             var unicodeString = Encoding.Unicode.GetString(spanBytes);
-            //unicodeBytes.CopyTo(Partitioner.Expansion, unicodeBytes.Length);
-            UTF8Range.Data.Span.Slice(0, (int)UTF8Range.Count)
-                .CopyTo(Partitioner.Expansion.AsSpan());
+            utf8Range.Data.Span.Slice(0, utf8Range.Count)
+                .CopyTo(partitioner.Expansion.AsSpan());
 
-            var Count = unicodeString.Length;
+            var count = unicodeString.Length;
 
             Uniscribe.NativeMethods.ScriptItemize(unicodeString, unicodeString.Length,
-                Partitioner.Items.Length,
-                ref Partitioner.UniControl,
-                ref Partitioner.UniState, Partitioner.Items, out var ItemCount);
+                partitioner.Items.Length,
+                ref partitioner.UniControl,
+                ref partitioner.UniState, partitioner.Items, out var ItemCount);
 
-            var Segment = false;
+            var segment = false;
 
-            for (int ItemIndex = 0;
-                ItemIndex < ItemCount;
-                ++ItemIndex)
+            for (var itemIndex = 0;
+                itemIndex < ItemCount;
+                ++itemIndex)
             {
                 //var Items = Partitioner.Items.AsSpan(ItemIndex);
-                var Item = Partitioner.Items[ItemIndex];
+                var item = partitioner.Items[itemIndex];
 
                 //Assert((DWORD)Item->iCharPos < Count);
-                var StrCount = Count - Item.iCharPos;
-                if ((ItemIndex + 1) < ItemCount)
+                var strCount = count - item.iCharPos;
+                if ((itemIndex + 1) < ItemCount)
                 {
                     //Assert(Item[1].iCharPos >= Item[0].iCharPos);
-                    StrCount = Partitioner.Items[ItemIndex + 1].iCharPos - Item.iCharPos;
+                    strCount = partitioner.Items[itemIndex + 1].iCharPos - item.iCharPos;
                 }
 
-                var Str = unicodeString.AsSpan(Item.iCharPos, StrCount).ToString();
+                var str = unicodeString.AsSpan(item.iCharPos, strCount).ToString();
 
-                var IsComplex = Uniscribe.NativeMethods.ScriptIsComplex(Str, StrCount, Uniscribe.Constants.SIC_COMPLEX) == Uniscribe.Constants.S_OK;
-                Uniscribe.NativeMethods.ScriptBreak(Str, StrCount, ref Item.a, Partitioner.Log);
+                var isComplex = Uniscribe.NativeMethods.ScriptIsComplex(str, strCount, Uniscribe.Constants.SIC_COMPLEX)
+                    == Uniscribe.Constants.S_OK;
 
-                int SegCount = 0;
+                Uniscribe.NativeMethods.ScriptBreak(str, strCount, ref item.a, partitioner.Log);
 
-                Partitioner.SegP[SegCount++] = 0;
-                for (var CheckIndex = 0; CheckIndex < StrCount; ++CheckIndex)
+                var segCount = 0;
+
+                partitioner.SegP[segCount++] = 0;
+                for (var checkIndex = 0; checkIndex < strCount; ++checkIndex)
                 {
-                    var Attr = Partitioner.Log[CheckIndex];
-                    var ShouldBreak = Str[CheckIndex] == ' ';
-                    if (IsComplex)
+                    var attr = partitioner.Log[checkIndex];
+                    var shouldBreak = str[checkIndex] == ' ';
+                    if (isComplex)
                     {
-                        ShouldBreak |= Attr.fSoftBreak == 1;
+                        shouldBreak |= attr.fSoftBreak == 1;
                     }
                     else
                     {
-                        ShouldBreak |= Attr.fCharStop == 1;
+                        shouldBreak |= attr.fCharStop == 1;
                     }
 
-                    if (ShouldBreak)
+                    if (shouldBreak)
                     {
-                        Partitioner.SegP[SegCount++] = (uint)CheckIndex;
+                        partitioner.SegP[segCount++] = (uint)checkIndex;
                     }
                 }
 
-                Partitioner.SegP[SegCount++] = (uint)StrCount;
+                partitioner.SegP[segCount++] = (uint)strCount;
 
-                int dSeg = 1;
-                int SegStart = 0;
-                int SegStop = SegCount - 1;
-                if (Item.a.fRTL > 0 ||
-                    Item.a.fLayoutRTL > 0)
+                var dSeg = 1;
+                var segStart = 0;
+                var segStop = segCount - 1;
+                if (item.a.fRTL > 0 ||
+                    item.a.fLayoutRTL > 0)
                 {
                     dSeg = -1;
-                    SegStart = SegCount - 2;
-                    SegStop = -1;
+                    segStart = segCount - 2;
+                    segStop = -1;
                 }
 
-                for (int SegIndex = SegStart; SegIndex != SegStop; SegIndex += dSeg)
+                for (var segIndex = segStart; segIndex != segStop; segIndex += dSeg)
                 {
-                    var Start = Partitioner.SegP[SegIndex];
-                    var End = Partitioner.SegP[SegIndex + 1];
-                    var ThisCount = (int)(End - Start);
+                    var start = partitioner.SegP[segIndex];
+                    var end = partitioner.SegP[segIndex + 1];
+                    var thisCount = (int)(end - start);
 
-                    if (ThisCount > 0)
+                    if (thisCount > 0)
                     {
-                        var Run = Str.AsSpan((int)Start, ThisCount);
-                        char CodePoint = Run[0];
-                        if ((ThisCount == 1) && IsDirectCodepoint(CodePoint))
-                        {
-                            ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
-                            //if (Cell is not null)
-                            {
-                                GlyphProps Props = Cursor.Props;
-                                if (DebugHighlighting)
-                                {
-                                    Props.Background = 0x00800000;
-                                }
+                        var run = str.AsSpan((int)start, thisCount);
+                        var codePoint = run[0];
 
-                                SetCellDirect(ReservedTileTable[CodePoint - MinDirectCodepoint], Props, ref Cell);
+                        if ((thisCount == 1) && IsDirectCodepoint(codePoint))
+                        {
+                            ref var cell = ref GetCell(screenBuffer, cursor.Position);
+                            var props = cursor.Props;
+                            if (debugHighlighting)
+                            {
+                                props.Background = 0x00800000;
                             }
 
-                            AdvanceColumn(Cursor.Position);
+                            SetCellDirect(reservedTileTable[codePoint - minDirectCodepoint], props, ref cell);
+
+                            AdvanceColumn(cursor.Position);
                         }
                         else
                         {
                             // TODO(casey): This wastes a lookup on the tile count.
                             // It should save the entry somehow, and roll it into the first cell.
 
-                            var Prepped = false;
-                            GlyphHash RunHash = ComputeGlyphHash(2 * ThisCount, Run, DefaultSeed);
-                            GlyphDim GlyphDim = GetGlyphDim(GlyphGen, GlyphTable, ThisCount, Run, RunHash);
-                            for (var TileIndex = 0u;
-                                TileIndex < GlyphDim.TileCount;
-                                ++TileIndex)
+                            var prepped = false;
+                            var runHash = ComputeGlyphHash(2 * thisCount, run);
+                            var glyphDim = GetGlyphDim(thisCount, run, runHash);
+                            for (var tileIndex = 0u;
+                                tileIndex < glyphDim.TileCount;
+                                ++tileIndex)
                             {
-                                ref var Cell = ref GetCell(ScreenBuffer, Cursor.Position);
-                                //if (Cell is not null)
+                                ref var cell = ref GetCell(screenBuffer, cursor.Position);
+                                var tileHash = ComputeHashForTileIndex(runHash, tileIndex);
+                                var state = FindGlyphEntryByHash(glyphTable, tileHash);
+                                if (state.FilledState != GlyphEntryState.Rasterized)
                                 {
-                                    GlyphHash TileHash = ComputeHashForTileIndex(RunHash, TileIndex);
-                                    GlyphState State = FindGlyphEntryByHash(GlyphTable, TileHash);
-                                    if (State.FilledState != GlyphEntryState.Rasterized)
+                                    if (!prepped)
                                     {
-                                        if (!Prepped)
-                                        {
-                                            PrepareTilesForTransfer(GlyphGen, Renderer, ThisCount, Run, GlyphDim);
-                                            Prepped = true;
-                                        }
-
-                                        TransferTile(GlyphGen, Renderer, TileIndex, State.GPUIndex);
-                                        UpdateGlyphCacheEntry(GlyphTable, State.Entry, GlyphEntryState.Rasterized, State.DimX, State.DimY);
+                                        PrepareTilesForTransfer(thisCount, run, glyphDim);
+                                        prepped = true;
                                     }
 
-                                    GlyphProps Props = Cursor.Props;
-                                    if (DebugHighlighting)
-                                    {
-                                        Props.Background = Segment ? 0x0008080u : 0x00000080u;
-                                        Segment = !Segment;
-                                    }
-                                    SetCellDirect(State.GPUIndex, Props, ref Cell);
+                                    TransferTile(tileIndex, state.GPUIndex);
+                                    UpdateGlyphCacheEntry(state.Entry, GlyphEntryState.Rasterized, state.DimX, state.DimY);
                                 }
 
-                                AdvanceColumn(Cursor.Position);
-                            }
+                                var props = cursor.Props;
+                                if (debugHighlighting)
+                                {
+                                    props.Background = segment ? 0x0008080u : 0x00000080u;
+                                    segment = !segment;
+                                }
 
+                                SetCellDirect(state.GPUIndex, props, ref cell);
+
+                                AdvanceColumn(cursor.Position);
+                            }
                         }
                     }
                 }
             }
         }
 
-        static GlyphHash ComputeHashForTileIndex(GlyphHash Tile0Hash, uint TileIndex)
+        private static GlyphHash ComputeHashForTileIndex(GlyphHash tile0Hash, uint tileIndex)
         {
             return new GlyphHash
             {
-                Value = HashCode.Combine(Tile0Hash.Value, TileIndex)
+                Value = HashCode.Combine(tile0Hash.Value, tileIndex)
             };
-            //__m128i HashValue = Tile0Hash.Value;
-            //if (TileIndex)
-            //{
-            //    HashValue = _mm_xor_si128(HashValue, _mm_set1_epi32(TileIndex));
-            //    HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //    HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //    HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //    HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //}
-
-            //glyph_hash Result = { HashValue };
-            //return Result;
         }
 
-        GlyphDim GetGlyphDim(GlyphGenerator GlyphGen, GlyphTable Table, int Count, ReadOnlySpan<char> String, GlyphHash RunHash)
+        private GlyphDim GetGlyphDim(int count, ReadOnlySpan<char> str, GlyphHash runHash)
         {
             /* TODO(casey): Windows can only 2^31 glyph runs - which
                seems fine, but... technically Unicode can have more than two
                billion combining characters, so I guess theoretically this
                code is broken - another "reason" to do a custom glyph rasterizer? */
 
-            GlyphDim Result = new GlyphDim();
+            var result = new GlyphDim();
 
-            var StringLen = Count;
+            var stringLen = count;
             //Assert(StringLen == Count);
 
-            SIZE Size = new SIZE();
-            GlyphState State = FindGlyphEntryByHash(Table, RunHash);
-            if (State.FilledState == GlyphEntryState.None)
+            var size = new SIZE();
+            var state = FindGlyphEntryByHash(glyphTable, runHash);
+            if (state.FilledState == GlyphEntryState.None)
             {
-                if (StringLen > 0)
+                if (stringLen > 0)
                 {
-                    Size = DWriteGetTextExtent(GlyphGen, StringLen, String);
+                    size = DWriteGetTextExtent(str);
                 }
 
-                UpdateGlyphCacheEntry(Table, State.Entry, GlyphEntryState.Sized, (uint)Size.cx, (uint)Size.cy);
+                UpdateGlyphCacheEntry(state.Entry, GlyphEntryState.Sized, (uint)size.cx, (uint)size.cy);
             }
             else
             {
-                Size.cx = State.DimX;
-                Size.cy = State.DimY;
+                size.cx = state.DimX;
+                size.cy = state.DimY;
             }
 
-            Result.TileCount = SafeRatio1((uint)(Size.cx + GlyphGen.FontWidth / 2), GlyphGen.FontWidth);
+            result.TileCount = SafeRatio1(size.cx + glyphGen.FontWidth / 2, glyphGen.FontWidth);
 
-            Result.XScale = 1.0f;
-            if ((uint)Size.cx > GlyphGen.FontWidth)
+            result.XScale = 1.0f;
+            if (size.cx > glyphGen.FontWidth)
             {
-                Result.XScale = SafeRatio1((float)(Result.TileCount * GlyphGen.FontWidth),
-                                           (float)(Size.cx));
+                result.XScale = SafeRatio1(result.TileCount * glyphGen.FontWidth,
+                                           (float)(size.cx));
             }
 
-            Result.YScale = 1.0f;
-            if ((uint)Size.cy > GlyphGen.FontHeight)
+            result.YScale = 1.0f;
+            if (size.cy > glyphGen.FontHeight)
             {
-                Result.YScale = SafeRatio1((float)GlyphGen.FontHeight, (float)Size.cy);
+                result.YScale = SafeRatio1(glyphGen.FontHeight, (float)size.cy);
             }
 
-            return Result;
+            return result;
         }
 
-        SIZE DWriteGetTextExtent(GlyphGenerator GlyphGen, int StringLen, ReadOnlySpan<char> String)
+        private SIZE DWriteGetTextExtent(ReadOnlySpan<char> str)
         {
-            var Result = new SIZE();
+            var result = new SIZE();
 
-            using var Layout = new TextLayout(GlyphGen.DWriteFactory, String.ToString(), GlyphGen.TextFormat, GlyphGen.TransferWidth, GlyphGen.TransferHeight);
+            using var layout = new TextLayout(glyphGen.DWriteFactory, str.ToString(), glyphGen.TextFormat, glyphGen.TransferWidth, glyphGen.TransferHeight);
 
-            if (Layout is not null)
+            if (layout is not null)
             {
-                var Metrics = Layout.Metrics;
+                var Metrics = layout.Metrics;
                 //Assert(Metrics.left == 0);
                 //Assert(Metrics.top == 0);
-                Result.cx = (uint)(Metrics.Width + 0.5f);
-                Result.cy = (uint)(Metrics.Height + 0.5f);
+                result.cx = (uint)(Metrics.Width + 0.5f);
+                result.cy = (uint)(Metrics.Height + 0.5f);
             }
 
-            return Result;
+            return result;
         }
 
-        static GlyphState FindGlyphEntryByHash(GlyphTable Table, GlyphHash RunHash)
+        private static GlyphState FindGlyphEntryByHash(GlyphTable glphyTable, GlyphHash runHash)
         {
-            if (!Table.Dictionary.TryGetValue(RunHash.Value, out var entry))
+            if (!glphyTable.Dictionary.TryGetValue(runHash.Value, out var entry))
             {
                 entry = new GlyphEntry();
-                entry.GPUIndex = Table.PickNextFreeGpuIndex();
-                Table.Dictionary[RunHash.Value] = entry;
+                entry.GPUIndex = glphyTable.PickNextFreeGpuIndex();
+                glphyTable.Dictionary[runHash.Value] = entry;
             }
 
             return new GlyphState
@@ -1338,135 +1210,118 @@ namespace Refterm
             //            return State;
         }
 
-        static void SetCellDirect(GpuGlyphIndex GPUIndex, GlyphProps Props, ref RendererCell Dest)
+        private static void SetCellDirect(GpuGlyphIndex gpuIndex, GlyphProps props, ref RendererCell dest)
         {
-            Dest.GlyphIndex = GPUIndex.Value;
-            var Foreground = Props.Foreground;
-            var Background = Props.Background;
-            if (Props.Flags.HasFlag(TerminalCellStyle.ReverseVideo))
+            dest.GlyphIndex = gpuIndex.Value;
+            var Foreground = props.Foreground;
+            var Background = props.Background;
+            if (props.Flags.HasFlag(TerminalCellStyle.ReverseVideo))
             {
-                Foreground = Props.Background;
-                Background = Props.Foreground;
+                Foreground = props.Background;
+                Background = props.Foreground;
             }
 
-            if (Props.Flags.HasFlag(TerminalCellStyle.Invisible))
+            if (props.Flags.HasFlag(TerminalCellStyle.Invisible))
             {
-                Dest.GlyphIndex = 0;
+                dest.GlyphIndex = 0;
             }
 
-            Dest.Foreground = Foreground | ((uint)Props.Flags << 24);
-            Dest.Background = Background;
+            dest.Foreground = Foreground | ((uint)props.Flags << 24);
+            dest.Background = Background;
         }
 
-        static bool IsDirectCodepoint(char CodePoint)
+        private static bool IsDirectCodepoint(char codePoint)
         {
-            var Result = CodePoint >= MinDirectCodepoint &&
-                         CodePoint < MaxDirectCodepoint;
-            return Result;
+            return codePoint >= minDirectCodepoint &&
+                   codePoint < maxDirectCodepoint;
         }
 
-        ref RendererCell GetCell(TerminalBuffer Buffer, Position Point)
+        private ref RendererCell GetCell(TerminalBuffer Buffer, Position Point)
         {
             return ref Buffer.GetCell(Point);
         }
 
-        void AdvanceColumn(Position Point)
+        private void AdvanceColumn(Position Point)
         {
             ++Point.X;
-            if (LineWrap &&
-                (Point.X >= ScreenBuffer.DimX))
+            if (lineWrap &&
+                (Point.X >= screenBuffer.DimX))
             {
                 AdvanceRow(Point);
             }
         }
-        public void AdvanceRow(Position Point)
+
+        private void AdvanceRow(Position point)
         {
-            AdvanceRowNoClear(Point);
-            ClearLine(ScreenBuffer, Point.Y);
+            AdvanceRowNoClear(point);
+            ClearLine(screenBuffer, point.Y);
         }
 
-        void AdvanceRowNoClear(Position Point)
+        private void AdvanceRowNoClear(Position point)
         {
-            Point.X = 0;
-            ++Point.Y;
-            if (Point.Y >= ScreenBuffer.DimY)
+            point.X = 0;
+            ++point.Y;
+            if (point.Y >= screenBuffer.DimY)
             {
-                Point.Y = 0;
+                point.Y = 0;
             }
         }
 
-        static void ClearLine(TerminalBuffer Buffer, uint Y)
+        private static void ClearLine(TerminalBuffer buffer, uint y)
         {
-            Buffer.ClearLine(Y);
+            buffer.ClearLine(y);
         }
 
-        static SourceBufferRange ReadSourceAt(SourceBuffer Buffer, ulong AbsoluteP, int Count)
+        private static SourceBufferRange ReadSourceAt(SourceBuffer buffer, ulong absoluteP, int count)
         {
-            SourceBufferRange Result = new SourceBufferRange();
-            if (IsInBuffer(Buffer, AbsoluteP))
+            var result = new SourceBufferRange();
+            if (IsInBuffer(buffer, absoluteP))
             {
-                int relativePosition = (int)(AbsoluteP % (ulong)Buffer.DataSize);
+                var relativePosition = (int)(absoluteP % (ulong)buffer.DataSize);
 
-                Result.AbsoluteP = AbsoluteP;
-                Result.Count = (int)Math.Min((ulong)Count, Buffer.AbsoluteFilledSize - AbsoluteP);
+                result.AbsoluteP = absoluteP;
+                result.Count = (int)Math.Min((ulong)count, buffer.AbsoluteFilledSize - absoluteP);
 
-                var availableInRestBuffer = Buffer.DataSize - (uint)relativePosition;
+                var availableInRestBuffer = buffer.DataSize - (uint)relativePosition;
 
-                if (Result.Count > availableInRestBuffer)
+                if (result.Count > availableInRestBuffer)
                 {
-                    Result.Count = (int)availableInRestBuffer;
-                    if (Result.Count == 0)
+                    result.Count = (int)availableInRestBuffer;
+                    if (result.Count == 0)
                     {
-                        Buffer.RelativePoint = 0;
-                        Result.Count = Math.Min(Count, Buffer.DataSize);
+                        buffer.Reset();
+                        result.Count = Math.Min(count, buffer.DataSize);
                     }
                 }
 
-                Result.Data = Buffer.Data.Slice(relativePosition, (int)Result.Count);
+                result.Data = buffer.Data.Slice(relativePosition, result.Count);
             }
 
-            return Result;
+            return result;
         }
 
-        static bool IsInBuffer(SourceBuffer Buffer, ulong AbsoluteP)
+        private static bool IsInBuffer(SourceBuffer buffer, ulong absoluteP)
         {
-            var BackwardOffset = Buffer.AbsoluteFilledSize - AbsoluteP;
-            var Result = ((AbsoluteP < Buffer.AbsoluteFilledSize) &&
-                          (BackwardOffset < (ulong)Buffer.DataSize));
-            return Result;
+            var backwardOffset = buffer.AbsoluteFilledSize - absoluteP;
+            return (absoluteP < buffer.AbsoluteFilledSize) &&
+                          (backwardOffset < (ulong)buffer.DataSize);
         }
 
-        public TerminalBuffer AllocateTerminalBuffer(uint DimX, uint DimY)
+        private TerminalBuffer AllocateTerminalBuffer(uint dimX, uint dimY)
         {
-            TerminalBuffer Result = new TerminalBuffer(this);
-
-            //int TotalSize = sizeof(renderer_cell) * DimX * DimY;
-            //Result.Cells = VirtualAlloc(0, TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-            Result.Cells = new RendererCell[DimX * DimY];
-
-            if (Result.Cells is not null) //???
-            {
-                Result.DimX = DimX;
-                Result.DimY = DimY;
-            }
+            var buffer = new TerminalBuffer(this, dimX, dimY);
 
             shouldLayoutLines = true;
 
-            return Result;
+            return buffer;
         }
 
-        static void DeallocateTerminalBuffer(TerminalBuffer Buffer)
+        private static void DeallocateTerminalBuffer(TerminalBuffer buffer)
         {
-            if (Buffer is not null &&
-                Buffer.Cells is not null)
-            {
-                //VirtualFree(Buffer.Cells, 0, MEM_RELEASE);
-                Buffer.DimX = Buffer.DimY = 0;
-                Buffer.Cells = null; // TODO: or new ...?
-            }
+            buffer.Dispose();
         }
 
-        void ProcessMessages()
+        private void ProcessMessages()
         {
             while (NativeWindows.PeekMessage(out var Message, new HandleRef(), 0, 0, NativeWindows.PeekMessageParams.PM_REMOVE))
             {
@@ -1474,7 +1329,7 @@ namespace Refterm
                 {
                     case NativeWindows.WndMsg.WM_QUIT:
                         {
-                            Quit = true;
+                            quit = true;
                         }
                         break;
 
@@ -1484,25 +1339,25 @@ namespace Refterm
                             {
                                 case NativeWindows.VirtualKeys.Prior:
                                     {
-                                        ViewingLineOffset -= ScreenBuffer.DimY / 2;
+                                        viewingLineOffset -= screenBuffer.DimY / 2;
                                     }
                                     break;
 
                                 case NativeWindows.VirtualKeys.Next:
                                     {
-                                        ViewingLineOffset += ScreenBuffer.DimY / 2;
+                                        viewingLineOffset += screenBuffer.DimY / 2;
                                     }
                                     break;
                             }
 
-                            if (ViewingLineOffset > 0)
+                            if (viewingLineOffset > 0)
                             {
-                                ViewingLineOffset = 0;
+                                viewingLineOffset = 0;
                             }
 
-                            if (ViewingLineOffset < -(int)LineCount)
+                            if (viewingLineOffset < -lineCount)
                             {
-                                ViewingLineOffset = -(int)LineCount;
+                                viewingLineOffset = -lineCount;
                             }
                         }
                         break;
@@ -1513,15 +1368,15 @@ namespace Refterm
                             {
                                 case NativeWindows.VirtualKeys.Back:
                                     {
-                                        while ((CommandLineCount > 0) &&
-                                              IsUTF8Extension(CommandLine[CommandLineCount - 1]))
+                                        while ((commandLineCount > 0) &&
+                                              IsUTF8Extension(commandLine[commandLineCount - 1]))
                                         {
-                                            --CommandLineCount;
+                                            --commandLineCount;
                                         }
 
-                                        if (CommandLineCount > 0)
+                                        if (commandLineCount > 0)
                                         {
-                                            --CommandLineCount;
+                                            --commandLineCount;
                                         }
                                     }
                                     break;
@@ -1529,30 +1384,30 @@ namespace Refterm
                                 case NativeWindows.VirtualKeys.Return:
                                     {
                                         ExecuteCommandLine();
-                                        CommandLineCount = 0;
-                                        ViewingLineOffset = 0;
+                                        commandLineCount = 0;
+                                        viewingLineOffset = 0;
                                     }
                                     break;
 
                                 default:
                                     {
-                                        char Char = (char)Message.wParam;
-                                        char[] Chars = new char[2];
-                                        int CharCount = 0;
+                                        var Char = (char)Message.wParam;
+                                        var Chars = new char[2];
+                                        var CharCount = 0;
 
                                         if (char.IsHighSurrogate(Char))
                                         {
-                                            LastChar = Char;
+                                            lastChar = Char;
                                         }
                                         else if (char.IsLowSurrogate(Char))
                                         {
-                                            if (char.IsSurrogatePair(LastChar, Char))
+                                            if (char.IsSurrogatePair(lastChar, Char))
                                             {
-                                                Chars[0] = LastChar;
+                                                Chars[0] = lastChar;
                                                 Chars[1] = Char;
                                                 CharCount = 2;
                                             }
-                                            LastChar = '\0';
+                                            lastChar = '\0';
                                         }
                                         else
                                         {
@@ -1563,9 +1418,9 @@ namespace Refterm
                                         if (CharCount > 0)
                                         {
                                             var command = Chars.AsSpan().ToString();
-                                            var nextSpan = CommandLine.AsSpan(CommandLineCount);
+                                            var nextSpan = commandLine.AsSpan(commandLineCount);
                                             command.CopyTo(nextSpan);
-                                            CommandLineCount += command.Length - 1;
+                                            commandLineCount += command.Length - 1;
                                         }
                                     }
                                     break;
@@ -1576,32 +1431,31 @@ namespace Refterm
             }
         }
 
-        void ExecuteCommandLine()
+        private void ExecuteCommandLine()
         {
             // TODO(casey): All of this is complete garbage and should never ever be used.
 
-            CommandLine[CommandLineCount] = '\0';
-            int ParamStart = 0;
-            while (ParamStart <= CommandLineCount)
+            commandLine[commandLineCount] = '\0';
+            var paramStart = 0;
+            while (paramStart <= commandLineCount)
             {
-                if (CommandLine[ParamStart] == ' ') break;
-                ++ParamStart;
+                if (commandLine[paramStart] == ' ') break;
+                ++paramStart;
             }
 
-            char[] A = CommandLine;
-            var B = CommandLine.AsMemory(ParamStart..);
-            B.Span[0] = '\0';
-            if (ParamStart < CommandLineCount)
+            var parameter = commandLine.AsMemory(paramStart..);
+            parameter.Span[0] = '\0';
+            if (paramStart < commandLineCount)
             {
-                ++ParamStart;
-                B = B.Slice(1);
+                ++paramStart;
+                parameter = parameter.Slice(1);
             }
 
-            var command = CommandLine.AsSpan(0, ParamStart - 1).ToString();
+            var command = commandLine.AsSpan(0, paramStart - 1).ToString();
 
-            SourceBufferRange ParamRange = new SourceBufferRange();
-            ParamRange.Data = B;
-            ParamRange.Count = (int)(CommandLineCount - ParamStart);
+            var ParamRange = new SourceBufferRange();
+            ParamRange.Data = parameter;
+            ParamRange.Count = commandLineCount - paramStart;
 
             // TODO(casey): Collapse all these options into a little array, so there's no
             // copy-pasta.
@@ -1609,13 +1463,13 @@ namespace Refterm
 
             if (command == "status")
             {
-                RunningCursor.ClearProps();
+                runningCursor.ClearProps();
                 AppendOutput($"RefTerm {Assembly.GetExecutingAssembly().GetName().Version}\n");
-                AppendOutput($"Size: {ScreenBuffer.DimX} x {ScreenBuffer.DimY}\n");
+                AppendOutput($"Size: {screenBuffer.DimX} x {screenBuffer.DimY}\n");
                 //AppendOutput("Fast pipe: %s\n", EnableFastPipe ? "ON" : "off");
-                AppendOutput($"Font: {RequestedFontName} {RequestedFontHeight}\n");
-                AppendOutput($"Line Wrap: {(LineWrap ? "ON" : "off")}\n");
-                AppendOutput($"Debug: {(DebugHighlighting ? "ON" : "off")}\n");
+                AppendOutput($"Font: {requestedFontName} {requestedFontHeight}\n");
+                AppendOutput($"Line Wrap: {(lineWrap ? "ON" : "off")}\n");
+                AppendOutput($"Debug: {(debugHighlighting ? "ON" : "off")}\n");
                 //AppendOutput("Throttling: %s\n", !NoThrottle ? "ON" : "off");
             }
             //else if (command == "fastpipe")
@@ -1625,13 +1479,13 @@ namespace Refterm
             //}
             else if (command == "linewrap")
             {
-                LineWrap = !LineWrap;
-                AppendOutput($"LineWrap: {(LineWrap ? "ON" : "off")}\n");
+                lineWrap = !lineWrap;
+                AppendOutput($"LineWrap: {(lineWrap ? "ON" : "off")}\n");
             }
             else if (command == "debug")
             {
-                DebugHighlighting = !DebugHighlighting;
-                AppendOutput($"Debug: {(DebugHighlighting ? "ON" : "off")}\n");
+                debugHighlighting = !debugHighlighting;
+                AppendOutput($"Debug: {(debugHighlighting ? "ON" : "off")}\n");
             }
             //else if (command == "throttle")
             //{
@@ -1640,16 +1494,16 @@ namespace Refterm
             //}
             else if (command == "font")
             {
-                RequestedFontName = CommandLine.AsSpan(0..ParamStart).ToString();
+                requestedFontName = commandLine.AsSpan(0..paramStart).ToString();
 
                 RefreshFont();
-                AppendOutput($"Font: {RequestedFontName}\n");
+                AppendOutput($"Font: {requestedFontName}\n");
             }
             else if (command == "fontsize")
             {
-                RequestedFontHeight = (int)ParseNumber(ref ParamRange);
+                requestedFontHeight = (int)ParseNumber(ref ParamRange);
                 RefreshFont();
-                AppendOutput("Font height: %u\n", RequestedFontHeight);
+                AppendOutput("Font height: %u\n", requestedFontHeight);
             }
             else if ((command == "kill") ||
                     (command == "break"))
@@ -1659,9 +1513,9 @@ namespace Refterm
             else if ((command == "clear") ||
                     (command == "cls"))
             {
-                for (var i = 0; i < Lines.Length; i++)
+                for (var i = 0; i < lines.Length; i++)
                 {
-                    var line = Lines[i];
+                    var line = lines[i];
                     line.Clear(this);
                 }
 
@@ -1672,31 +1526,40 @@ namespace Refterm
             {
                 KillProcess();
                 AppendOutput("Exiting...\n");
-                Quit = true;
+                quit = true;
             }
             else if ((command == "echo") ||
                     (command == "print"))
             {
-                AppendOutput($"{B.Span.ToString()}\n");
+                AppendOutput($"{parameter.Span.ToString()}\n");
             }
             else if (command == "")
             {
             }
             else
             {
-                var processName = $"{command}.exe";
+                var extension = "";
+                if (!command.EndsWith(".exe") &&
+                    !command.EndsWith(".bat") &&
+                    !command.EndsWith(".com") &&
+                    !command.EndsWith(".cmd"))
+                {
+                    extension = ".exe";
+                }
 
-                var param = new string(CommandLine.AsSpan(ParamStart).ToArray().TakeWhile(x => x != '\0').ToArray());
+                var processName = $"{command}{extension}";
+
+                var param = new string(commandLine.AsSpan(paramStart).ToArray().TakeWhile(x => x != '\0').ToArray());
                 var processCommandLine = $"{processName} {param}";
 
                 var started = ExecuteSubProcess(processName, param);
                 if (!started)
                 {
                     processName = "c:\\Windows\\System32\\cmd.exe";
-                    processCommandLine = $"cmd.exe /c {A.AsSpan().ToString()}.exe {B.Span.ToString()}";
+                    processCommandLine = $"cmd.exe /c {processName} {parameter.Span.ToString()}";
                     if (!(started = ExecuteSubProcess(processName, processCommandLine)))
                     {
-                        AppendOutput($"ERROR: Unable to execute {CommandLine}\n");
+                        AppendOutput($"ERROR: Unable to execute {commandLine}\n");
                     }
                 }
 
@@ -1707,9 +1570,9 @@ namespace Refterm
             }
         }
 
-        bool ExecuteSubProcess(string ProcessName, string ProcessCommandLine)
+        private bool ExecuteSubProcess(string processName, string processCommandLine)
         {
-            if (ChildProcess is not null)
+            if (childProcess is not null)
             {
                 KillProcess();
             }
@@ -1718,7 +1581,7 @@ namespace Refterm
             var encoding = Encoding.GetEncoding(codePage);
 
             var process = new Process();
-            var ProcessDir = ".\\";
+            var processDir = ".\\";
 
             process.StartInfo = new ProcessStartInfo
             {
@@ -1729,15 +1592,13 @@ namespace Refterm
                 StandardOutputEncoding = encoding,
                 StandardErrorEncoding = encoding,
                 StandardInputEncoding = encoding,
-                FileName = ProcessName,
-                Arguments = ProcessCommandLine,
-                WorkingDirectory = ProcessDir,
+                FileName = processName,
+                Arguments = processCommandLine,
+                WorkingDirectory = processDir,
                 LoadUserProfile = true
             };
 
             process.EnableRaisingEvents = true;
-            //process.ErrorDataReceived += Process_OutputDataReceived;
-            //process.OutputDataReceived += Process_OutputDataReceived;
             process.Exited += Process_Exited;
 
             try
@@ -1747,38 +1608,37 @@ namespace Refterm
                     process.ErrorDataReceived -= Process_OutputDataReceived;
                     process.OutputDataReceived -= Process_OutputDataReceived;
                     process.Exited -= Process_Exited;
+
                     return false;
                 }
-
             }
             catch
             {
                 return false;
             }
 
-            //process.BeginOutputReadLine();
-            //process.BeginErrorReadLine();
-            ChildProcessCancellationTokenSource = new CancellationTokenSource();
+            childProcessCancellationTokenSource = new CancellationTokenSource();
             var syncObj = process.SynchronizingObject;
 
-            Task.Run(async () =>
+            _ = Task.Run(async () =>
             {
-                if (ChildProcessCancellationTokenSource is null)
+                if (childProcessCancellationTokenSource is null)
                 {
                     return;
                 }
-                var token = ChildProcessCancellationTokenSource.Token;
+
+                var token = childProcessCancellationTokenSource.Token;
                 var buffer = new byte[4 * 1024];
-                Encoding detectedEncoding = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+                var detectedEncoding = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
                 var offset = 0;
 
-                var stream = ChildProcess.StandardOutput.BaseStream;
+                var stream = childProcess.StandardOutput.BaseStream;
 
                 while (!token.IsCancellationRequested)
                 {
                     try
                     {
-                        int read = 0;
+                        var read = 0;
                         do
                         {
                             read = stream
@@ -1794,11 +1654,10 @@ namespace Refterm
                                 if (detectedEncoding is not null)
                                 {
                                     var outputString = detectedEncoding.GetChars(buffer, 0, offset + read);
-                                    //outputTransfer.Enqueue(outputString);
 
                                     if (syncObj?.InvokeRequired == true)
                                     {
-                                        syncObj.Invoke((Action<char[]>)(o => AppendOutput((char[])o)), new[] { outputString });
+                                        syncObj.Invoke((Action<char[]>)(o => AppendOutput(o)), new[] { outputString });
                                     }
                                     else
                                     {
@@ -1814,7 +1673,7 @@ namespace Refterm
                     }
                     catch (Exception exc)
                     {
-
+                        AppendOutput(exc.Message);
                     }
 
                     if (token.IsCancellationRequested)
@@ -1826,7 +1685,7 @@ namespace Refterm
                 }
             });
 
-            ChildProcess = process;
+            childProcess = process;
 
             return true;
         }
@@ -1869,8 +1728,9 @@ namespace Refterm
             var lastOutput = (sender as Process).StandardOutput.ReadToEnd();
             if (lastOutput.Length > 0)
             {
-                outputTransfer.Append(lastOutput.ToCharArray());
+                AppendOutput(lastOutput);
             }
+
             CloseProcess();
         }
 
@@ -1884,93 +1744,85 @@ namespace Refterm
             AppendOutput(e.Data + '\n');
         }
 
-        void KillProcess()
+        private void KillProcess()
         {
-            if (ChildProcess is not null)
+            if (childProcess is not null)
             {
-                ChildProcess.Kill();
+                childProcess.Kill();
                 CloseProcess();
             }
         }
 
-        void CloseProcess()
+        private void CloseProcess()
         {
-            NativeWindows.FreeConsole();
-            ChildProcessCancellationTokenSource?.Cancel();
-            ChildProcessCancellationTokenSource = null;
+            childProcessCancellationTokenSource?.Cancel();
+            childProcessCancellationTokenSource = null;
 
-            if (ChildProcess is not null)
+            if (childProcess is not null)
             {
-                ChildProcess.ErrorDataReceived -= Process_OutputDataReceived;
-                ChildProcess.OutputDataReceived -= Process_OutputDataReceived;
-                ChildProcess.Exited -= Process_Exited;
+                childProcess.ErrorDataReceived -= Process_OutputDataReceived;
+                childProcess.OutputDataReceived -= Process_OutputDataReceived;
+                childProcess.Exited -= Process_Exited;
             }
 
-            ChildProcess?.Dispose();
-            ChildProcess = null;
+            childProcess?.Dispose();
+            childProcess = null;
         }
 
-        static bool IsUTF8Extension(char A)
+        private static bool IsUTF8Extension(char A)
         {
             var Result = ((A & 0xc0) == 0x80);
             return Result;
         }
 
-        void AppendOutput(string Format, params object[] args)
+        private void AppendOutput(string format, params object[] args)
         {
             // TODO(casey): This is all garbage code.  You need a checked printf here, and of
             // course there isn't one of those.  Ideally this would change over to using
             // a real concatenator here, like with a #define system, but this is just
             // a hack for now to do basic printing from the internal code.
 
-
-            string str;
+            string text;
 
             if (args.Length == 0)
             {
-                str = Format;
+                text = format;
             }
             else
             {
                 try
                 {
-                    str = string.Format(Format, args);
+                    text = string.Format(format, args);
                 }
                 catch
                 {
-                    str = Format;
+                    text = format;
                 }
             }
 
-            AppendOutput(str.AsSpan());
+            AppendOutput(text.AsSpan());
         }
 
-        void AppendOutput(ReadOnlySpan<char> data)
+        private void AppendOutput(ReadOnlySpan<char> data)
         {
-            var remaining = (int)data.Length;
+            var remaining = data.Length;
             while (remaining > 0)
             {
-                var Dest = GetNextWritableRange(ScrollBackBuffer, remaining);
-                //Dest.Count = Math.Min(ScrollBackBuffer.DataSize - ScrollBackBuffer.RelativePoint, remaining);
+                var dest = GetNextWritableRange(ScrollBackBuffer, remaining);
 
-                data.Slice(0, Dest.Count)
-                    .CopyTo(Dest.Data.Span);
+                data.Slice(0, dest.Count)
+                    .CopyTo(dest.Data.Span);
 
-                CommitWrite(ScrollBackBuffer, Dest.Count);
-                ParseLines(Dest, RunningCursor);
+                CommitWrite(ScrollBackBuffer, dest.Count);
+                ParseLines(dest, runningCursor);
 
-                remaining -= Dest.Count;
+                remaining -= dest.Count;
             }
 
             shouldLayoutLines = true;
         }
 
-        static byte[] OverhangMask = new byte[32]
-        {
-            255, 255, 255, 255,  255, 255, 255, 255,  255, 255, 255, 255,  255, 255, 255, 255,
-            0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
-        };
-        void ParseLines(SourceBufferRange Range, CursorState Cursor)
+        private void ParseLines(SourceBufferRange range, CursorState cursor)
         {
             /* TODO(casey): Currently, if the commit of line data _straddles_ a control code boundary
                this code does not properly _stop_ the processing cursor.  This can cause an edge case
@@ -1980,173 +1832,84 @@ namespace Refterm
                past that point.
             */
 
-            Range = new SourceBufferRange(Range);
+            range = new SourceBufferRange(range);
 
-            var Carriage = Vector128.Create((byte)'\n');
-            var Escape = Vector128.Create((byte)'\x1b');
-            //var Complex = Vector128.Create(1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128);
-            //var Complex = Vector128.Create(0b1111_1111_1000_0000).AsUInt16();
-            var Complex = Vector128.Create((byte)128);
+            var carriage = Vector128.Create((byte)'\n');
+            var escape = Vector128.Create((byte)'\x1b');
+            var complex = Vector128.Create((byte)128);
 
-            var SplitLineAtCount = 4096;
-            var LastP = Range.AbsoluteP;
-            while (Range.Count > 0)
+            var splitLineAtCount = 4096;
+            while (range.Count > 0)
             {
-                //var ContainsComplex = false;
-                //__m128i ContainsComplex = _mm_setzero_si128();
-
-
-                int Count = Range.Count;
-                if (Count > SplitLineAtCount)
+                var count = range.Count;
+                if (count > splitLineAtCount)
                 {
-                    Count = SplitLineAtCount;
+                    count = splitLineAtCount;
                 }
 
-                //var Data = Range.Data.Span;
-                //int index = 0;
-                //var testC = false;
-                //var testE = false;
-                //var testX = false;
-                //while (index < Count)
-                //{
-                //    var c = Data[index];
-                //    testC |= c == '\n';
-                //    testE |= c == '\x1b';
-                //    testX |= c == (char)0x80;
-                //    var test = testC || testE || testX;
-
-                //    //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
-                //    //__m128i TestC = _mm_cmpeq_epi8(Batch, Carriage);
-                //    //__m128i TestE = _mm_cmpeq_epi8(Batch, Escape);
-                //    //__m128i TestX = _mm_and_si128(Batch, Complex);
-                //    //__m128i Test = _mm_or_si128(TestC, TestE);
-                //    //int Check = _mm_movemask_epi8(Test);
-                //    //if (Check)
-                //    //{
-                //    //    int Advance = _tzcnt_u32(Check);
-                //    //    __m128i MaskX = _mm_loadu_si128((__m128i*)(OverhangMask + 16 - Advance));
-                //    //    TestX = _mm_and_si128(MaskX, TestX);
-                //    //    ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                //    //    Count -= Advance;
-                //    //    Data += Advance;
-                //    //    break;
-                //    //}
-
-                //    //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                //    ContainsComplex |= test;
-                //    if (ContainsComplex)
-                //    {
-                //        break;
-                //    }
-                //    index++;
-                //}
-
-                //Lines[CurrentLineIndex].ContainsComplexChars |= ContainsComplex;
-                //Range = ConsumeCount(Range, index);
-
-                var ContainsComplex = Vector128.Create((byte)0);
-                //var Data = MemoryMarshal.Cast<char, byte>(Range.Data.Span);
-                var Data = Range.Data.Span;
+                var containsComplex = Vector128.Create((byte)0);
+                var data = range.Data.Span;
                 var consumed = 0;
-                while (Count >= 16)
+                while (count >= 16)
                 {
+                    var Batch = MemoryMarshal.Cast<char, Vector128<byte>>(data)[0];
 
-                    //var Batch = Vector128.Create(
-                    //    Data[0], Data[1], Data[2], Data[3], Data[4], Data[5], Data[6], Data[7])
-                    //    .AsByte();
-                    var Batch = MemoryMarshal.Cast<char, Vector128<byte>>(Data)[0];
-
-                    var testC = Sse2.CompareEqual(Batch, Carriage);
-                    var testE = Sse2.CompareEqual(Batch, Escape);
-                    var testX = Sse2.And(Batch, Complex);
+                    var testC = Sse2.CompareEqual(Batch, carriage);
+                    var testE = Sse2.CompareEqual(Batch, escape);
+                    var testX = Sse2.And(Batch, complex);
                     var test = Sse2.Or(testC, testE);
                     var check = Sse2.MoveMask(test.AsByte());
                     if (check != 0)
                     {
                         var advance = CountTrailingZeroBytes(check);
-                        //var maskX = Vector128.Create(OverhangMask[16 - advance]);
                         var maskData = OverhangMask.AsSpan(16 - advance);
-                        //var maskX = Vector128.Create(
-                        //    maskData[0], maskData[1], maskData[2], maskData[3], maskData[4], maskData[5], maskData[6], maskData[7],
-                        //    maskData[8], maskData[9], maskData[10], maskData[11], maskData[12], maskData[13], maskData[14], maskData[15])
-                        //    //.AsUInt16()
-                        //    ;
                         var maskX = MemoryMarshal.Cast<byte, Vector128<byte>>(maskData)[0];
 
                         testX = Sse2.And(maskX, testX);
-                        ContainsComplex = Sse2.Or(ContainsComplex, testX.AsByte());
-
-                        Count -= advance;
-                        Data = Data.Slice(advance);
                         consumed += advance;
                         break;
                     }
 
-                    ContainsComplex = Sse2.Or(ContainsComplex, testX.AsByte());
-                    Count -= 16;
-                    Data = Data.Slice(16);
+                    containsComplex = Sse2.Or(containsComplex, testX.AsByte());
+                    count -= 16;
+                    data = data.Slice(16);
                     consumed += 16;
                 }
 
-                ConsumeCount(Range, consumed);
-                //var ttt = Sse2.MoveMask(Vector128.Create((byte)128));
-                //var uuu = Sse2.MoveMask(ContainsComplex);
-                //var xxx = Sse2.SumAbsoluteDifferences(ContainsComplex, Vector128.Create((byte)0));
+                ConsumeCount(range, consumed);
 
-                var c = Complex.ToScalar() > 0;
+                lines[currentLineIndex].ContainsComplexChars |= complex.ToScalar() > 0;
 
-
-                Lines[CurrentLineIndex].ContainsComplexChars |= c;
-                //_mm_movemask_epi8(ContainsComplex);
-
-                if (AtEscape(Range.Data.Span))
+                if (AtEscape(range.Data.Span))
                 {
-                    var FeedAt = Range.AbsoluteP;
-                    if (ParseEscape(ref Range, Cursor))
+                    var feedAt = range.AbsoluteP;
+                    if (ParseEscape(ref range, cursor))
                     {
-                        LineFeed(FeedAt, FeedAt, Cursor.Props);
+                        LineFeed(feedAt, feedAt, cursor.Props);
                     }
                 }
                 else
                 {
-                    char Token = GetToken(ref Range);
-                    if (Token == '\n')
+                    var token = GetToken(ref range);
+                    if (token == '\n')
                     {
-                        LineFeed(Range.AbsoluteP, Range.AbsoluteP, Cursor.Props);
+                        LineFeed(range.AbsoluteP, range.AbsoluteP, cursor.Props);
                     }
-                    else if (Token < 0) // TODO(casey): Not sure what is a "combining char" here, really, but this is a rough test
+                    else if (token < 0) // TODO(casey): Not sure what is a "combining char" here, really, but this is a rough test
                     {
-                        Lines[CurrentLineIndex].ContainsComplexChars = true;
+                        lines[currentLineIndex].ContainsComplexChars = true;
                     }
                 }
 
-                UpdateLineEnd(Range.AbsoluteP);
-                if (GetLineLength(Lines[CurrentLineIndex]) > (ulong)SplitLineAtCount)
+                UpdateLineEnd(range.AbsoluteP);
+                if (GetLineLength(lines[currentLineIndex]) > (ulong)splitLineAtCount)
                 {
-                    LineFeed(Range.AbsoluteP, Range.AbsoluteP, Cursor.Props);
+                    LineFeed(range.AbsoluteP, range.AbsoluteP, cursor.Props);
                 }
             }
         }
 
-        public int CountTrailingZeroBytes(byte[] packet)
-        {
-            var i = 0;
-            var length = packet.Length;
-            while (i < length)
-            {
-                if (packet[length - i - 1] != 0)
-                {
-                    return i;
-                }
-
-                i--;
-            }
-            return i;
-        }
-
-
-
-        public int CountTrailingZeroBytes(int value)
+        private int CountTrailingZeroBytes(int value)
         {
             var i = 0;
             while (i < 4)
@@ -2161,229 +1924,223 @@ namespace Refterm
             return i;
         }
 
-        static ulong GetLineLength(Line Line)
+        private static ulong GetLineLength(Line line)
         {
             //Assert(Line->OnePastLastP >= Line->FirstP);
-            var Result = Line.OnePastLastP - Line.FirstP;
-            return Result;
+            return line.OnePastLastP - line.FirstP;
         }
 
-        void LineFeed(ulong AtP, ulong NextLineStart, GlyphProps AtProps)
+        private void LineFeed(ulong atP, ulong nextLineStart, GlyphProps atProps)
         {
-            UpdateLineEnd(AtP);
-            ++CurrentLineIndex;
-            if (CurrentLineIndex >= MaxLineCount)
+            UpdateLineEnd(atP);
+
+            ++currentLineIndex;
+            if (currentLineIndex >= maxLineCount)
             {
-                CurrentLineIndex = 0;
+                currentLineIndex = 0;
             }
 
-            var Line = Lines[CurrentLineIndex];
-            Line.FirstP = NextLineStart;
-            Line.OnePastLastP = NextLineStart;
-            Line.ContainsComplexChars = false;
-            Line.StartingProps = AtProps;
+            var line = lines[currentLineIndex];
+            line.FirstP = nextLineStart;
+            line.OnePastLastP = nextLineStart;
+            line.ContainsComplexChars = false;
+            line.StartingProps = atProps;
 
-            if (LineCount <= CurrentLineIndex)
+            if (lineCount <= currentLineIndex)
             {
-                LineCount = CurrentLineIndex + 1;
+                lineCount = currentLineIndex + 1;
             }
         }
 
-        void UpdateLineEnd(ulong ToP)
+        private void UpdateLineEnd(ulong toP)
         {
-            Lines[CurrentLineIndex].OnePastLastP = ToP;
+            lines[currentLineIndex].OnePastLastP = toP;
         }
 
-        static bool ParseEscape(ref SourceBufferRange Range, CursorState Cursor)
+        private static bool ParseEscape(ref SourceBufferRange range, CursorState cursor)
         {
-            var MovedCursor = false;
+            var movedCursor = false;
 
-            GetToken(ref Range);
-            GetToken(ref Range);
+            GetToken(ref range);
+            GetToken(ref range);
 
-            char Command = (char)0;
-            uint ParamCount = 0;
-            uint[] Params = new uint[8];
+            var command = (char)0;
+            uint paramCount = 0;
+            var parameters = new uint[8];
 
-            while ((ParamCount < Params.Length) && Range.Count > 0)
+            while ((paramCount < parameters.Length) && range.Count > 0)
             {
-                char Token = PeekToken(Range.Data.Span, 0);
-                if (IsDigit(Token))
+                var token = PeekToken(range.Data.Span, 0);
+                if (IsDigit(token))
                 {
-                    Params[ParamCount++] = ParseNumber(ref Range);
-                    char Semi = GetToken(ref Range);
+                    parameters[paramCount++] = ParseNumber(ref range);
+                    var Semi = GetToken(ref range);
                     if (Semi != ';')
                     {
-                        Command = Semi;
+                        command = Semi;
                         break;
                     }
                 }
                 else
                 {
-                    Command = GetToken(ref Range);
+                    command = GetToken(ref range);
                 }
             }
 
-            switch (Command)
+            switch (command)
             {
                 case 'H':
                     {
                         // NOTE(casey): Move cursor to X,Y position
-                        Cursor.Position.X = Params[1] - 1;
-                        Cursor.Position.Y = Params[0] - 1;
-                        MovedCursor = true;
+                        cursor.Position.X = parameters[1] - 1;
+                        cursor.Position.Y = parameters[0] - 1;
+                        movedCursor = true;
                     }
                     break;
 
                 case 'm':
                     {
                         // NOTE(casey): Set graphics mode
-                        if (Params[0] == 0)
+                        if (parameters[0] == 0)
                         {
-                            Cursor.ClearProps();
+                            cursor.ClearProps();
                         }
 
-                        if (Params[0] == 1) Cursor.Props.Flags |= TerminalCellStyle.Bold;
-                        if (Params[0] == 2) Cursor.Props.Flags |= TerminalCellStyle.Dim;
-                        if (Params[0] == 3) Cursor.Props.Flags |= TerminalCellStyle.Italic;
-                        if (Params[0] == 4) Cursor.Props.Flags |= TerminalCellStyle.Underline;
-                        if (Params[0] == 5) Cursor.Props.Flags |= TerminalCellStyle.Blinking;
-                        if (Params[0] == 7) Cursor.Props.Flags |= TerminalCellStyle.ReverseVideo;
-                        if (Params[0] == 8) Cursor.Props.Flags |= TerminalCellStyle.Invisible;
-                        if (Params[0] == 9) Cursor.Props.Flags |= TerminalCellStyle.Strikethrough;
+                        if (parameters[0] == 1) cursor.Props.Flags |= TerminalCellStyle.Bold;
+                        if (parameters[0] == 2) cursor.Props.Flags |= TerminalCellStyle.Dim;
+                        if (parameters[0] == 3) cursor.Props.Flags |= TerminalCellStyle.Italic;
+                        if (parameters[0] == 4) cursor.Props.Flags |= TerminalCellStyle.Underline;
+                        if (parameters[0] == 5) cursor.Props.Flags |= TerminalCellStyle.Blinking;
+                        if (parameters[0] == 7) cursor.Props.Flags |= TerminalCellStyle.ReverseVideo;
+                        if (parameters[0] == 8) cursor.Props.Flags |= TerminalCellStyle.Invisible;
+                        if (parameters[0] == 9) cursor.Props.Flags |= TerminalCellStyle.Strikethrough;
 
-                        if ((Params[0] == 38) && (Params[1] == 2)) Cursor.Props.Foreground = PackRGB(Params[2], Params[3], Params[4]);
-                        if ((Params[0] == 48) && (Params[1] == 2)) Cursor.Props.Background = PackRGB(Params[2], Params[3], Params[4]);
+                        if ((parameters[0] == 38) && (parameters[1] == 2)) cursor.Props.Foreground = PackRGB(parameters[2], parameters[3], parameters[4]);
+                        if ((parameters[0] == 48) && (parameters[1] == 2)) cursor.Props.Background = PackRGB(parameters[2], parameters[3], parameters[4]);
                     }
                     break;
             }
 
-            return MovedCursor;
+            return movedCursor;
         }
 
-        static uint PackRGB(uint R, uint G, uint B)
+        private static uint PackRGB(uint r, uint g, uint b)
         {
-            if (R > 255) R = 255;
-            if (G > 255) G = 255;
-            if (B > 255) B = 255;
-            uint Result = ((B << 16) | (G << 8) | (R << 0));
-            return Result;
+            if (r > 255) r = 255;
+            if (g > 255) g = 255;
+            if (b > 255) b = 255;
+
+            return ((b << 16) | (g << 8) | (r << 0));
         }
 
-        static uint ParseNumber(ref SourceBufferRange Range)
+        private static uint ParseNumber(ref SourceBufferRange range)
         {
-            uint Result = 0;
-            while (IsDigit(PeekToken(Range.Data.Span, 0)))
+            uint number = 0;
+            while (IsDigit(PeekToken(range.Data.Span, 0)))
             {
-                char Token = GetToken(ref Range);
-                Result = (uint)(10 * Result + (Token - '0'));
+                var Token = GetToken(ref range);
+                number = (uint)(10 * number + (Token - '0'));
             }
-            return Result;
+            return number;
         }
 
-        static bool IsDigit(char Digit)
+        static bool IsDigit(char digit)
         {
-            var Result = ((Digit >= '0') && (Digit <= '9'));
-            return Result;
+            return (digit >= '0') && (digit <= '9');
         }
 
         private static char NullToken = '\0';
-        static ref char GetToken(ref SourceBufferRange Range)
+        private static ref char GetToken(ref SourceBufferRange range)
         {
-            ref char Result = ref NullToken;
+            ref var result = ref NullToken;
 
-            if (Range.Count > 0)
+            if (range.Count > 0)
             {
-                Result = ref Range.Data.Span[0];
-                ConsumeCount(Range, 1);
+                result = ref range.Data.Span[0];
+                ConsumeCount(range, 1);
             }
 
-            return ref Result;
+            return ref result;
         }
 
-        static bool AtEscape(Span<char> span)
+        private static bool AtEscape(Span<char> span)
         {
-            var Result = PeekToken(span, 0) == '\x1b' &&
-                         PeekToken(span, 1) == '[';
+            return PeekToken(span, 0) == '\x1b' &&
+                   PeekToken(span, 1) == '[';
+        }
+        
+        private static char PeekToken(Span<char> span, int ordinal)
+        {
+            var Result = (char)0;
+
+            if (ordinal < span.Length)
+            {
+                Result = span[ordinal];
+            }
+
             return Result;
         }
-        static char PeekToken(Span<char> span, int Ordinal)
-        {
-            char Result = (char)0;
 
-            if (Ordinal < span.Length)
+        private static void ConsumeCount(SourceBufferRange source, int count)
+        {
+            if (count > source.Count)
             {
-                Result = span[Ordinal];
+                count = source.Count;
             }
 
-            return Result;
+            source.Data = source.Data.Slice(count);
+            source.AbsoluteP += (ulong)count;
+            source.Count -= count;
         }
 
-        static void ConsumeCount(SourceBufferRange Source, int Count)
-        {
-            //SourceBufferRange Result = new SourceBufferRange(Source);
-
-            if (Count > Source.Count)
-            {
-                Count = Source.Count;
-            }
-
-            Source.Data = Source.Data.Slice((int)Count);
-            Source.AbsoluteP += (ulong)Count;
-            Source.Count -= Count;
-        }
-
-        void CommitWrite(SourceBuffer Buffer, int Size)
+        private void CommitWrite(SourceBuffer buffer, int size)
         {
             //Assert(Buffer->RelativePoint < Buffer->DataSize);
             //Assert(Size <= Buffer->DataSize);
 
-            Buffer.RelativePoint += Size;
-            Buffer.AbsoluteFilledSize += (ulong)Size;
+            buffer.RelativePoint += size;
+            buffer.AbsoluteFilledSize += (ulong)size;
 
-            var WrappedRelative = Buffer.RelativePoint - Buffer.DataSize;
-            Buffer.RelativePoint = (Buffer.RelativePoint >= Buffer.DataSize) ? (int)WrappedRelative : Buffer.RelativePoint;
+            var WrappedRelative = buffer.RelativePoint - buffer.DataSize;
+            buffer.RelativePoint = (buffer.RelativePoint >= buffer.DataSize) ? WrappedRelative : buffer.RelativePoint;
 
             //Assert(Buffer.RelativePoint < Buffer.DataSize);
         }
 
-        static SourceBufferRange GetNextWritableRange(SourceBuffer Buffer, int MaxCount)
+        private static SourceBufferRange GetNextWritableRange(SourceBuffer buffer, int maxCount)
         {
             //Assert(Buffer->RelativePoint < Buffer->DataSize);
 
-            var Result = new SourceBufferRange();
-            Result.AbsoluteP = Buffer.AbsoluteFilledSize;
-            Result.Count = Math.Min(MaxCount, (int)(Buffer.DataSize - Buffer.RelativePoint));
+            var range = new SourceBufferRange();
+            range.AbsoluteP = buffer.AbsoluteFilledSize;
+            range.Count = Math.Min(maxCount, buffer.DataSize - buffer.RelativePoint);
 
-            if (Result.Count <= 0)
+            if (range.Count <= 0)
             {
-                Buffer.RelativePoint = 0;
-
-                Buffer.Data = new Memory<char>(Buffer.InternalData);
-
-                Result.Count = Math.Min(Result.Count, (int)Buffer.Data.Length);
+                buffer.Reset();
+                range.Count = Math.Min(maxCount, buffer.Data.Length);
             }
 
-            Result.Data = Buffer.Data.Slice((int)Buffer.RelativePoint, (int)Result.Count);
+            range.Data = buffer.Data.Slice(buffer.RelativePoint, range.Count);
 
-            return Result;
+            return range;
         }
 
         private bool RefreshFont()
         {
-            var Result = false;
+            var refreshed = false;
 
-            GlyphTableParams parameters = new GlyphTableParams();
+            var parameters = new GlyphTableParams();
 
-            parameters.ReservedTileCount = ArrayCount(ReservedTileTable) + 1;
+            parameters.ReservedTileCount = ArrayCount(reservedTileTable) + 1;
 
-            for (int Try = 0; Try <= 1; ++Try)
+            for (var attempt = 0; attempt <= 1; ++attempt)
             {
-                Result = SetFont(GlyphGen, RequestedFontName, (uint)RequestedFontHeight);
-                if (Result)
+                refreshed = SetFont(requestedFontName, (uint)requestedFontHeight);
+                if (refreshed)
                 {
-                    parameters.CacheTileCountInX = SafeRatio1((uint)TextureWidth, GlyphGen.FontWidth);
-                    parameters.EntryCount = GetExpectedTileCountForDimension(GlyphGen, (uint)TextureWidth, (uint)TextureHeight);
+                    parameters.CacheTileCountInX = SafeRatio1((uint)textureWidth, glyphGen.FontWidth);
+                    parameters.EntryCount = GetExpectedTileCountForDimension((uint)textureWidth, (uint)textureHeight);
                     parameters.HashCount = 4096;
 
                     if (parameters.EntryCount > parameters.ReservedTileCount)
@@ -2396,135 +2153,136 @@ namespace Refterm
                 RevertToDefaultFont();
             }
 
-            GlyphTable = PlaceGlyphTableInMemory(parameters);
+            glyphTable = PlaceGlyphTableInMemory(parameters);
 
-            InitializeDirectGlyphTable(parameters, ReservedTileTable, true);
+            InitializeDirectGlyphTable(parameters, reservedTileTable, true);
 
-            GlyphDim UnitDim = GetSingleTileUnitDim();
+            var unitDim = GetSingleTileUnitDim();
 
-            for (var TileIndex = 0u;
-                TileIndex < ArrayCount(ReservedTileTable);
-                ++TileIndex)
+            for (var tileIndex = 0u;
+                tileIndex < ArrayCount(reservedTileTable);
+                ++tileIndex)
             {
-                char Letter = (char)(MinDirectCodepoint + TileIndex);
-                PrepareTilesForTransfer(GlyphGen, Renderer, 1, Letter.ToString(), UnitDim);
-                TransferTile(GlyphGen, Renderer, 0, ReservedTileTable[TileIndex]);
+                var letter = (char)(minDirectCodepoint + tileIndex);
+                PrepareTilesForTransfer(1, letter.ToString(), unitDim);
+                TransferTile(0, reservedTileTable[tileIndex]);
             }
 
             // NOTE(casey): Clear the reserved 0 tile
-            var Nothing = "\0";
-            GpuGlyphIndex ZeroTile = new GpuGlyphIndex();
-            PrepareTilesForTransfer(GlyphGen, Renderer, 0, Nothing, UnitDim);
-            TransferTile(GlyphGen, Renderer, 0, ZeroTile);
+            var nothing = "\0";
+            var zeroTile = new GpuGlyphIndex();
+            PrepareTilesForTransfer(0, nothing, unitDim);
+            TransferTile(0, zeroTile);
 
-            return Result;
+            return refreshed;
         }
 
-        static GpuGlyphIndex PackGlyphCachePoint(uint X, uint Y)
+        private static GpuGlyphIndex PackGlyphCachePoint(uint x, uint y)
         {
-            GpuGlyphIndex Result = new GpuGlyphIndex { Value = (Y << 16) | X };
-            return Result;
+            return new GpuGlyphIndex { Value = (y << 16) | x };
         }
 
-        static GlyphTable PlaceGlyphTableInMemory(GlyphTableParams Params)
+        private GlyphTable PlaceGlyphTableInMemory(GlyphTableParams parameters)
         {
             //Assert(Params.HashCount >= 1);
             //Assert(Params.EntryCount >= 2);
             //Assert(IsPowerOfTwo(Params.HashCount));
             //Assert(Params.CacheTileCountInX >= 1);
 
-            GlyphTable Result = new GlyphTable();
-            Result.Params = Params;
-            Result.Entries = new GlyphEntry[Params.EntryCount];
-            Result.EntryCount = (uint)Result.Entries.Length;
-            for (var i = 0; i < Result.EntryCount; i++)
+            var table = new GlyphTable();
+            table.Params = parameters;
+            table.Entries = new GlyphEntry[parameters.EntryCount];
+            table.EntryCount = (uint)table.Entries.Length;
+            for (var i = 0; i < table.EntryCount; i++)
             {
-                Result.Entries[i] = new GlyphEntry();
+                table.Entries[i] = new GlyphEntry();
             }
 
-            var StartingTile = Params.ReservedTileCount;
-            var X = StartingTile % Params.CacheTileCountInX;
-            var Y = StartingTile / Params.CacheTileCountInX;
-            for (var EntryIndex = 0u;
-                    EntryIndex < Params.EntryCount;
-                    ++EntryIndex)
+            var startingTile = parameters.ReservedTileCount;
+            var x = startingTile % parameters.CacheTileCountInX;
+            var y = startingTile / parameters.CacheTileCountInX;
+            for (var entryIndex = 0u;
+                    entryIndex < parameters.EntryCount;
+                    ++entryIndex)
             {
-                if (X >= Params.CacheTileCountInX)
+                if (x >= parameters.CacheTileCountInX)
                 {
-                    X = 0;
-                    ++Y;
+                    x = 0;
+                    ++y;
                 }
 
-                GlyphEntry Entry = GetEntry(Result, EntryIndex);
+                var entry = GetEntry(table, entryIndex);
 
-                Entry.GPUIndex = PackGlyphCachePoint(X, Y);
+                entry.GPUIndex = PackGlyphCachePoint(x, y);
 
-                Entry.FilledState = GlyphEntryState.None;
-                Entry.DimX = 0;
-                Entry.DimY = 0;
-                Entry.Used = false;
-                ++X;
+                entry.FilledState = GlyphEntryState.None;
+                entry.DimX = 0;
+                entry.DimY = 0;
+                entry.Used = false;
+                ++x;
             }
 
-            return Result;
+            return table;
         }
 
-        void InitializeDirectGlyphTable(GlyphTableParams Params, GpuGlyphIndex[] Table, bool SkipZeroSlot)
+        private void InitializeDirectGlyphTable(GlyphTableParams parameters, GpuGlyphIndex[] reservedTable, bool skipZeroSlot)
         {
             //Assert(Params.CacheTileCountInX >= 1);
 
-            var skipAmount = SkipZeroSlot ? 1u : 0;
+            var skipAmount = skipZeroSlot ? 1u : 0;
 
-            var X = skipAmount;
-            var Y = 0u;
-            for (var EntryIndex = 0;
-                EntryIndex < (Params.ReservedTileCount - skipAmount);
-                ++EntryIndex)
+            var x = skipAmount;
+            var y = 0u;
+
+            for (var entryIndex = 0;
+                entryIndex < (parameters.ReservedTileCount - skipAmount);
+                ++entryIndex)
             {
-                if (X >= Params.CacheTileCountInX)
+                if (x >= parameters.CacheTileCountInX)
                 {
-                    X = 0;
-                    ++Y;
+                    x = 0;
+                    ++y;
                 }
 
-                Table[EntryIndex] = PackGlyphCachePoint(X, Y);
-                this.GlyphTable.Entries[EntryIndex].Used = true;
+                reservedTable[entryIndex] = PackGlyphCachePoint(x, y);
+                glyphTable.Entries[entryIndex].Used = true;
 
-                ++X;
+                ++x;
             }
         }
-        uint GetExpectedTileCountForDimension(GlyphGenerator GlyphGen, uint Width, uint Height)
-        {
-            uint PerRow = SafeRatio1(Width, GlyphGen.FontWidth);
-            uint PerColumn = SafeRatio1(Height, GlyphGen.FontHeight);
-            uint Result = PerRow * PerColumn;
 
-            return Result;
+        private uint GetExpectedTileCountForDimension(uint width, uint height)
+        {
+            var perRow = SafeRatio1(width, glyphGen.FontWidth);
+            var perColumn = SafeRatio1(height, glyphGen.FontHeight);
+
+            return perRow * perColumn;
         }
 
         private uint SafeRatio1(uint a, uint b)
         {
             return b != 0 ? a / b : b;
         }
+
         private float SafeRatio1(float a, float b)
         {
             return b != 0 ? a / b : b;
         }
 
-        bool SetFont(GlyphGenerator GlyphGen, string FontName, uint FontHeight)
+        private bool SetFont(string fontName, uint fontHeight)
         {
-            var Result = DWriteSetFont(GlyphGen, FontName, FontHeight);
+            var Result = DWriteSetFont(fontName, fontHeight);
             return Result;
         }
 
-        bool DWriteSetFont(GlyphGenerator GlyphGen, string FontName, uint FontHeight)
+        private bool DWriteSetFont(string FontName, uint FontHeight)
         {
             var Result = false;
 
-            if (GlyphGen.DWriteFactory is not null)
+            if (glyphGen.DWriteFactory is not null)
             {
                 var textFormat = new TextFormat(
-                    GlyphGen.DWriteFactory,
+                    glyphGen.DWriteFactory,
                     FontName,
                     FontWeight.Regular,
                     FontStyle.Normal,
@@ -2532,17 +2290,17 @@ namespace Refterm
                     FontHeight
                     );
 
-                GlyphGen.TextFormat = textFormat;
+                glyphGen.TextFormat = textFormat;
 
-                if (GlyphGen.TextFormat is not null)
+                if (glyphGen.TextFormat is not null)
                 {
-                    GlyphGen.TextFormat.ParagraphAlignment = ParagraphAlignment.Near;
-                    GlyphGen.TextFormat.TextAlignment = TextAlignment.Leading;
+                    glyphGen.TextFormat.ParagraphAlignment = ParagraphAlignment.Near;
+                    glyphGen.TextFormat.TextAlignment = TextAlignment.Leading;
 
-                    GlyphGen.FontWidth = 0;
-                    GlyphGen.FontHeight = 0;
-                    IncludeLetterBounds(GlyphGen, "M");
-                    IncludeLetterBounds(GlyphGen, "g");
+                    glyphGen.FontWidth = 0;
+                    glyphGen.FontHeight = 0;
+                    IncludeLetterBounds("M");
+                    IncludeLetterBounds("g");
 
                     Result = true;
                 }
@@ -2551,10 +2309,10 @@ namespace Refterm
             return Result;
         }
 
-        void IncludeLetterBounds(GlyphGenerator GlyphGen, string Letter)
+        private void IncludeLetterBounds(string letter)
         {
-            using var textLayout = new SharpDX.DirectWrite.TextLayout(
-                GlyphGen.DWriteFactory, Letter, GlyphGen.TextFormat, GlyphGen.TransferWidth, GlyphGen.TransferHeight);
+            using var textLayout = new TextLayout(
+                glyphGen.DWriteFactory, letter, glyphGen.TextFormat, glyphGen.TransferWidth, glyphGen.TransferHeight);
 
             if (textLayout is not null)
             {
@@ -2563,19 +2321,19 @@ namespace Refterm
                 var charMetrics = textLayout.Metrics; // TODO: or just "Metrics"?
                 var lineMetrics = textLayout.GetLineMetrics();
 
-                if (GlyphGen.FontHeight < (uint)(lineMetrics[0].Height + 0.5f))
+                if (glyphGen.FontHeight < (uint)(lineMetrics[0].Height + 0.5f))
                 {
-                    GlyphGen.FontHeight = (uint)(lineMetrics[0].Height + 0.5f);
+                    glyphGen.FontHeight = (uint)(lineMetrics[0].Height + 0.5f);
                 }
 
-                if (GlyphGen.FontHeight < (uint)(charMetrics.Height + 0.5f))
+                if (glyphGen.FontHeight < (uint)(charMetrics.Height + 0.5f))
                 {
-                    GlyphGen.FontHeight = (uint)(charMetrics.Height + 0.5f);
+                    glyphGen.FontHeight = (uint)(charMetrics.Height + 0.5f);
                 }
 
-                if (GlyphGen.FontWidth < (uint)(charMetrics.Width + 0.5f))
+                if (glyphGen.FontWidth < (uint)(charMetrics.Width + 0.5f))
                 {
-                    GlyphGen.FontWidth = (uint)(charMetrics.Width + 0.5f);
+                    glyphGen.FontWidth = (uint)(charMetrics.Width + 0.5f);
                 }
             }
         }
@@ -2589,39 +2347,35 @@ namespace Refterm
         {
             //RequestedFontName = "Courier New";
             //RequestedFontHeight = 25;
-            RequestedFontName = "Cascadia Mono";
-            RequestedFontHeight = 17;
+            requestedFontName = "Cascadia Mono";
+            requestedFontHeight = 17;
         }
 
         private SourceBuffer AllocateSourceBuffer(int dataSize)
         {
-            SourceBuffer result = new SourceBuffer();
-
-            SYSTEM_INFO info = new SYSTEM_INFO();
+            var info = new NativeWindows.SYSTEM_INFO();
             NativeWindows.GetSystemInfo(ref info);
 
             dataSize = (int)((dataSize + info.dwAllocationGranularity - 1) & ~(info.dwAllocationGranularity - 1));
 
-            result.InternalData = new char[dataSize];
-            result.Data = new Memory<char>(result.InternalData);
-            result.DataSize = dataSize;
+            var result = new SourceBuffer(dataSize);
 
             return result;
         }
 
-        private GlyphGenerator AllocateGlyphGenerator(uint transferWidth, uint transferHeight, Surface glyphTransferSurface)
+        private GlyphGenerator AllocateGlyphGenerator(uint transferWidth, uint transferHeight)
         {
             var glyphGen = new GlyphGenerator();
 
             glyphGen.TransferWidth = transferWidth;
             glyphGen.TransferHeight = transferHeight;
 
-            DWriteInit(glyphGen, glyphTransferSurface);
+            DWriteInit(glyphGen);
 
             return glyphGen;
         }
 
-        private void DWriteInit(GlyphGenerator glyphGen, Surface glyphTransferSurface)
+        private void DWriteInit(GlyphGenerator glyphGen)
         {
             glyphGen.DWriteFactory = new SharpDX.DirectWrite.Factory(SharpDX.DirectWrite.FactoryType.Shared);
         }
@@ -2673,11 +2427,11 @@ namespace Refterm
 
             renderer.ConstantBuffer = SharpDX.Direct3D11.Buffer.Create<RendererConstBuffer>(renderer.Device, new[] { new RendererConstBuffer() }, constantBufferDesc);
             renderer.ConstantBuffer.DebugName = "RendererConstBuffer";
-            renderer.ComputeShader = new ComputeShader(renderer.Device, CssShaderBytes);
+            renderer.ComputeShader = new ComputeShader(renderer.Device, computeShaderBytes);
             renderer.ComputeShader.DebugName = "ComputeShader";
-            renderer.PixelShader = new PixelShader(renderer.Device, PSShaderBytes);
+            renderer.PixelShader = new PixelShader(renderer.Device, pixelShaderBytes);
             renderer.PixelShader.DebugName = "PixelShader";
-            renderer.VertexShader = new VertexShader(renderer.Device, VSShaderBytes);
+            renderer.VertexShader = new VertexShader(renderer.Device, vertexShaderBytes);
             renderer.VertexShader.DebugName = "VertexShader";
 
             return renderer;

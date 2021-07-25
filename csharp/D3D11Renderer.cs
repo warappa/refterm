@@ -7,32 +7,31 @@ namespace Refterm
     public class D3D11Renderer
     {
         public SharpDX.Direct3D11.Device Device { get; set; }
-        public SharpDX.Direct3D11.DeviceContext DeviceContext { get; set; }
-        //public IntPtr FrameLatencyWaitableObject { get; internal set; }
-        public IntPtr FrameLatencyWaitableObject { get; internal set; }
-        public SharpDX.Direct3D11.Buffer ConstantBuffer { get; internal set; }
-        public ComputeShader ComputeShader { get; internal set; }
-        public PixelShader PixelShader { get; internal set; }
-        public VertexShader VertexShader { get; internal set; }
-        public Texture2D GlyphTexture { get; internal set; }
-        public ShaderResourceView GlyphTextureView { get; internal set; }
+        public DeviceContext DeviceContext { get; set; }
+        public IntPtr FrameLatencyWaitableObject { get; set; }
+        public SharpDX.Direct3D11.Buffer ConstantBuffer { get; set; }
+        public ComputeShader ComputeShader { get; set; }
+        public PixelShader PixelShader { get; set; }
+        public VertexShader VertexShader { get; set; }
+        public Texture2D GlyphTexture { get; set; }
+        public ShaderResourceView GlyphTextureView { get; set; }
         public Texture2D GlyphTransfer { get; set; }
         public ShaderResourceView GlyphTransferView { get; set; }
         public Surface GlyphTransferSurface { get; set; }
         public SharpDX.Direct2D1.RenderTarget DWriteRenderTarget { get; set; }
         public SharpDX.Direct2D1.SolidColorBrush DWriteFillBrush { get; set; }
-        public uint CurrentWidth { get; internal set; }
-        public uint CurrentHeight { get; internal set; }
-        public uint MaxCellCount { get; internal set; }
-        public SwapChain2 SwapChain { get; internal set; }
-        public bool UseComputeShader { get; internal set; }
-        public UnorderedAccessView RenderView { get; internal set; }
-        public RenderTargetView RenderTarget { get; internal set; }
-        public SharpDX.Direct3D11.Buffer CellBuffer { get; internal set; }
-        public ShaderResourceView CellView { get; internal set; }
-        public SharpDX.Direct3D11.DeviceContext1 DeviceContext1 { get; internal set; }
+        public uint CurrentWidth { get; set; }
+        public uint CurrentHeight { get; set; }
+        public uint MaxCellCount { get; set; }
+        public SwapChain2 SwapChain { get; set; }
+        public bool UseComputeShader { get; set; }
+        public UnorderedAccessView RenderView { get; set; }
+        public RenderTargetView RenderTarget { get; set; }
+        public SharpDX.Direct3D11.Buffer CellBuffer { get; set; }
+        public ShaderResourceView CellView { get; set; }
+        public DeviceContext1 DeviceContext1 { get; set; }
 
-        internal void SetD3D11GlyphCacheDim(int width, int height)
+        public void SetD3D11GlyphCacheDim(int width, int height)
         {
             ReleaseD3DGlyphCache();
 
@@ -56,13 +55,7 @@ namespace Refterm
             GlyphTextureSurface.DebugName = "GlyphTextureSurface";
         }
 
-        private void ReleaseD3DGlyphCache()
-        {
-            GlyphTexture?.Dispose();
-            GlyphTextureView?.Dispose();
-        }
-
-        internal void SetD3D11GlyphTransferDim(uint width, uint height)
+        public void SetD3D11GlyphTransferDim(uint width, uint height)
         {
             ReleaseD3DGlyphTransfer();
 
@@ -88,7 +81,7 @@ namespace Refterm
             D2DAcquire(GlyphTransferSurface);
         }
 
-        private void D2DAcquire(Surface glyphTransferSurface)//, out SharpDX.Direct2D1.RenderTarget dWriteRenderTarget, ref SharpDX.Direct2D1.SolidColorBrush dWriteFillBrush)
+        private void D2DAcquire(Surface glyphTransferSurface)
         {
             using (var factory = new SharpDX.Direct2D1.Factory(SharpDX.Direct2D1.FactoryType.SingleThreaded, SharpDX.Direct2D1.DebugLevel.Warning))
             {
@@ -126,6 +119,12 @@ namespace Refterm
 
             DWriteRenderTarget?.Dispose();
             DWriteRenderTarget = null;
+        }
+
+        private void ReleaseD3DGlyphCache()
+        {
+            GlyphTexture?.Dispose();
+            GlyphTextureView?.Dispose();
         }
     }
 }

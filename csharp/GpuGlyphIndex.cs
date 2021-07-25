@@ -2,6 +2,6 @@
 {
     public struct GpuGlyphIndex
     {
-        public uint Value;
+        public uint Value { get; set; }
     }
 }

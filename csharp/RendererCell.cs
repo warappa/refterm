@@ -7,8 +7,8 @@ namespace Refterm
     [StructLayout(LayoutKind.Sequential)]
     public struct RendererCell
     {
-        public uint GlyphIndex;
-        public uint Foreground;
-        public uint Background; // NOTE(casey): The top bit of the background flag indicates blinking
+        public uint GlyphIndex { get; set; }
+        public uint Foreground { get; set; }
+        public uint Background { get; set; } // NOTE(casey): The top bit of the background flag indicates blinking
     }
 }

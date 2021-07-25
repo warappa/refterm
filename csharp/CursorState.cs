@@ -20,7 +20,7 @@
             ClearProps();
         }
 
-        internal void ClearProps()
+        public void ClearProps()
         {
             Props.Foreground = terminal.DefaultForegroundColor;
             Props.Background = terminal.DefaultBackgroundColor;

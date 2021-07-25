@@ -92,20 +92,20 @@ namespace Refterm
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct STARTUPINFO
         {
-            public Int32 cb;
+            public int cb;
             public string lpReserved;
             public string lpDesktop;
             public string lpTitle;
-            public Int32 dwX;
-            public Int32 dwY;
-            public Int32 dwXSize;
-            public Int32 dwYSize;
-            public Int32 dwXCountChars;
-            public Int32 dwYCountChars;
-            public Int32 dwFillAttribute;
-            public Int32 dwFlags;
-            public Int16 wShowWindow;
-            public Int16 cbReserved2;
+            public int dwX;
+            public int dwY;
+            public int dwXSize;
+            public int dwYSize;
+            public int dwXCountChars;
+            public int dwYCountChars;
+            public int dwFillAttribute;
+            public int dwFlags;
+            public short wShowWindow;
+            public short cbReserved2;
             public IntPtr lpReserved2;
             public IntPtr hStdInput;
             public IntPtr hStdOutput;
@@ -292,13 +292,13 @@ namespace Refterm
             QS_RAWINPUT = 0x400
         }
 
-        public const UInt32 INFINITE = 0xFFFFFFFF;
-        public const UInt32 WAIT_ABANDONED = 0x00000080;
-        public const UInt32 WAIT_OBJECT_0 = 0x00000000;
-        public const UInt32 WAIT_TIMEOUT = 0x00000102;
+        public const uint INFINITE = 0xFFFFFFFF;
+        public const uint WAIT_ABANDONED = 0x00000080;
+        public const uint WAIT_OBJECT_0 = 0x00000000;
+        public const uint WAIT_TIMEOUT = 0x00000102;
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+        public static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
         [Flags]
         public enum PeekMessageParams : uint
@@ -1064,5 +1064,21 @@ namespace Refterm
 
         [DllImport("kernel32.dll")]
         public static extern uint GetLastError();
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SYSTEM_INFO
+        {
+            internal ushort wProcessorArchitecture;
+            internal ushort wReserved;
+            internal uint dwPageSize;
+            internal IntPtr lpMinimumApplicationAddress;
+            internal IntPtr lpMaximumApplicationAddress;
+            internal IntPtr dwActiveProcessorMask;
+            internal uint dwNumberOfProcessors;
+            internal uint dwProcessorType;
+            internal uint dwAllocationGranularity;
+            internal ushort wProcessorLevel;
+            internal ushort wProcessorRevision;
+        }
     }
 }

@@ -2,6 +2,6 @@
 {
     public class GlyphHash
     {
-        public int Value;
+        public int Value { get; set; }
     }
 }

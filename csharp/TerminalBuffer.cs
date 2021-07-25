@@ -1,16 +1,22 @@
-﻿namespace Refterm
+﻿using System;
+
+namespace Refterm
 {
-    public class TerminalBuffer
+    public class TerminalBuffer : IDisposable
     {
         private readonly Terminal terminal;
-        public RendererCell[] Cells;
-        public uint DimX;
-        public uint DimY;
-        public uint FirstLineY;
 
-        public TerminalBuffer(Terminal terminal)
+        public RendererCell[] Cells { get; private set; }
+        public uint DimX { get; set; }
+        public uint DimY { get; set; }
+        public uint FirstLineY { get; set; }
+
+        public TerminalBuffer(Terminal terminal, uint dimX, uint dimY)
         {
             this.terminal = terminal;
+            DimX = dimX;
+            DimY = dimY;
+            Cells = new RendererCell[DimX * DimY];
         }
 
         public bool IsInBounds(Position Point)
@@ -46,7 +52,7 @@
 
         public void ClearCellCount(uint offset, uint Count)
         {
-            uint Background = terminal.DefaultBackgroundColor;
+            var Background = terminal.DefaultBackgroundColor;
             for (var i = 0; i < Count; i++)
             {
                 ref var cell = ref Cells[offset + i];
@@ -70,6 +76,15 @@
         public void UpdateCell(Position point, RendererCell cell)
         {
             Cells[point.Y * DimX + point.X] = cell;
+        }
+
+        public void Dispose()
+        {
+            if (Cells is not null)
+            {
+                DimX = DimY = 0;
+                Cells = null;
+            }
         }
     }
 }

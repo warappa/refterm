@@ -5,20 +5,21 @@ namespace Refterm
 {
     public class GlyphTable
     {
+        private int lastKnownEntry = 0;
+
         public GlyphTableStats Stats;
 
-        public uint HashMask;
-        public uint HashCount;
-        public uint EntryCount;
+        public uint HashMask { get; set; }
+        public uint HashCount { get; set; }
+        public uint EntryCount { get; set; }
 
-        public uint[] HashTable;
-        public GlyphEntry[] Entries;
+        public uint[] HashTable { get; set; }
+        public GlyphEntry[] Entries { get; set; }
 
-        public Dictionary<int, GlyphEntry> Dictionary = new Dictionary<int, GlyphEntry>();
+        public Dictionary<int, GlyphEntry> Dictionary { get; set; } = new Dictionary<int, GlyphEntry>();
 
-        public GlyphTableParams Params { get; internal set; }
+        public GlyphTableParams Params { get; set; }
 
-        private int lastKnownEntry = 0;
         public GpuGlyphIndex PickNextFreeGpuIndex()
         {
             for (var i = lastKnownEntry; i < Entries.Length; i++)

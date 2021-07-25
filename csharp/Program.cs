@@ -13,15 +13,6 @@ namespace Refterm
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            //NativeWindows.AllocConsole();
-            //var aa = NativeWindows.SetConsoleCP((uint)1200);
-            //var bb = NativeWindows.SetConsoleOutputCP((uint)1200);
-            //var res = NativeWindows.AttachConsole(Process.GetCurrentProcess().Id);
-            //if (!res)
-            //{
-            //    var a = Marshal.GetLastWin32Error();
-            //    var error = NativeWindows.GetLastError();
-            //}
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

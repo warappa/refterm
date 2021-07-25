@@ -4,14 +4,14 @@ namespace Refterm
 {
     public class GlyphGenerator
     {
-        public uint FontWidth;
-        public uint FontHeight;
+        public uint FontWidth { get; set; }
+        public uint FontHeight { get; set; }
 
-        public uint TransferWidth;
-        public uint TransferHeight;
+        public uint TransferWidth { get; set; }
+        public uint TransferHeight { get; set; }
 
         // NOTE(casey): For DWrite-based generation:
-        public Factory DWriteFactory;
-        public TextFormat TextFormat;
+        public Factory DWriteFactory { get; set; }
+        public TextFormat TextFormat { get; set; }
     }
 }

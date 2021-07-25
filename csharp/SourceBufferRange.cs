@@ -23,9 +23,9 @@ namespace Refterm
             Data = source.Data.Slice(0, count);
         }
 
-        public ulong AbsoluteP;
-        public int Count;
-        public Memory<char> Data;
+        public ulong AbsoluteP { get; set; }
+        public int Count { get; set; }
+        public Memory<char> Data { get; set; }
 
         internal void Skip(int skipCount)
         {

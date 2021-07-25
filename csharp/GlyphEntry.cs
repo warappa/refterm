@@ -2,18 +2,15 @@
 {
     public class GlyphEntry
     {
-        public GlyphHash HashValue;
+        public GlyphHash HashValue { get; set; }
 
-        uint NextWithSameHash;
-        uint NextLRU;
-        uint PrevLRU;
-        public GpuGlyphIndex GPUIndex;
+        public GpuGlyphIndex GPUIndex { get; set; }
 
         // NOTE(casey): For user use:
-        public GlyphEntryState FilledState;
-        public uint DimX;
-        public uint DimY;
+        public GlyphEntryState FilledState { get; set; }
+        public uint DimX { get; set; }
+        public uint DimY { get; set; }
 
-        public bool Used { get; internal set; }
+        public bool Used { get; set; }
     }
 }
