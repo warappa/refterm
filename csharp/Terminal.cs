@@ -15,6 +15,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -202,7 +203,7 @@ namespace Refterm
                     }
                 }
 
-                while(!shouldLayoutLines)
+                while (!shouldLayoutLines)
                 {
                     var ms = (DateTime.UtcNow - lastOutput).TotalMilliseconds;
                     if (ms > BlinkMS)
@@ -1937,6 +1938,11 @@ namespace Refterm
             shouldLayoutLines = true;
         }
 
+        static byte[] OverhangMask = new byte[32]
+        {
+            255, 255, 255, 255,  255, 255, 255, 255,  255, 255, 255, 255,  255, 255, 255, 255,
+            0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
+        };
         void ParseLines(SourceBufferRange Range, CursorState Cursor)
         {
             /* TODO(casey): Currently, if the commit of line data _straddles_ a control code boundary
@@ -1947,17 +1953,19 @@ namespace Refterm
                past that point.
             */
 
-            var Carriage = Vector128.Create('\n');
-            var Escape = Vector128.Create('\x1b');
-            var Complex = Vector128.Create(0x80);
+            var Carriage = Vector128.Create((byte)'\n');
+            var Escape = Vector128.Create((byte)'\x1b');
+            //var Complex = Vector128.Create(1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128);
+            //var Complex = Vector128.Create(0b1111_1111_1000_0000).AsUInt16();
+            var Complex = Vector128.Create((byte)128);
 
             var SplitLineAtCount = 4096;
             var LastP = Range.AbsoluteP;
             while (Range.Count > 0)
             {
-                var ContainsComplex = false;
+                //var ContainsComplex = false;
                 //__m128i ContainsComplex = _mm_setzero_si128();
-                //var ContainsComplex = Vector128.Create(0);
+
 
                 int Count = Range.Count;
                 if (Count > SplitLineAtCount)
@@ -1965,51 +1973,101 @@ namespace Refterm
                     Count = SplitLineAtCount;
                 }
 
+                //var Data = Range.Data.Span;
+                //int index = 0;
+                //var testC = false;
+                //var testE = false;
+                //var testX = false;
+                //while (index < Count)
+                //{
+                //    var c = Data[index];
+                //    testC |= c == '\n';
+                //    testE |= c == '\x1b';
+                //    testX |= c == (char)0x80;
+                //    var test = testC || testE || testX;
+
+                //    //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
+                //    //__m128i TestC = _mm_cmpeq_epi8(Batch, Carriage);
+                //    //__m128i TestE = _mm_cmpeq_epi8(Batch, Escape);
+                //    //__m128i TestX = _mm_and_si128(Batch, Complex);
+                //    //__m128i Test = _mm_or_si128(TestC, TestE);
+                //    //int Check = _mm_movemask_epi8(Test);
+                //    //if (Check)
+                //    //{
+                //    //    int Advance = _tzcnt_u32(Check);
+                //    //    __m128i MaskX = _mm_loadu_si128((__m128i*)(OverhangMask + 16 - Advance));
+                //    //    TestX = _mm_and_si128(MaskX, TestX);
+                //    //    ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
+                //    //    Count -= Advance;
+                //    //    Data += Advance;
+                //    //    break;
+                //    //}
+
+                //    //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
+                //    ContainsComplex |= test;
+                //    if (ContainsComplex)
+                //    {
+                //        break;
+                //    }
+                //    index++;
+                //}
+
+                //Lines[CurrentLineIndex].ContainsComplexChars |= ContainsComplex;
+                //Range = ConsumeCount(Range, index);
+
+                var ContainsComplex = Vector128.Create((byte)0);
+                //var Data = MemoryMarshal.Cast<char, byte>(Range.Data.Span);
                 var Data = Range.Data.Span;
-                int index = 0;
-                var testC = false;
-                var testE = false;
-                var testX = false;
-                while (index < Count)
+                var consumed = 0;
+                while (Count >= 16)
                 {
-                    var c = Data[index];
-                    testC |= c == '\n';
-                    testE |= c == '\x1b';
-                    testX |= c == (char)0x80;
-                    var test = testC || testE || testX;
 
-                    //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
-                    //__m128i TestC = _mm_cmpeq_epi8(Batch, Carriage);
-                    //__m128i TestE = _mm_cmpeq_epi8(Batch, Escape);
-                    //__m128i TestX = _mm_and_si128(Batch, Complex);
-                    //__m128i Test = _mm_or_si128(TestC, TestE);
-                    //int Check = _mm_movemask_epi8(Test);
-                    //if (Check)
-                    //{
-                    //    int Advance = _tzcnt_u32(Check);
-                    //    __m128i MaskX = _mm_loadu_si128((__m128i*)(OverhangMask + 16 - Advance));
-                    //    TestX = _mm_and_si128(MaskX, TestX);
-                    //    ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                    //    Count -= Advance;
-                    //    Data += Advance;
-                    //    break;
-                    //}
+                    //var Batch = Vector128.Create(
+                    //    Data[0], Data[1], Data[2], Data[3], Data[4], Data[5], Data[6], Data[7])
+                    //    .AsByte();
+                    var Batch = MemoryMarshal.Cast<char, Vector128<byte>>(Data)[0];
 
-                    //ContainsComplex = _mm_or_si128(ContainsComplex, TestX);
-                    ContainsComplex |= test;
-                    if (ContainsComplex)
+                    var testC = Sse2.CompareEqual(Batch, Carriage);
+                    var testE = Sse2.CompareEqual(Batch, Escape);
+                    var testX = Sse2.And(Batch, Complex);
+                    var test = Sse2.Or(testC, testE);
+                    var check = Sse2.MoveMask(test.AsByte());
+                    if (check != 0)
                     {
+                        var advance = CountTrailingZeroBytes(check);
+                        //var maskX = Vector128.Create(OverhangMask[16 - advance]);
+                        var maskData = OverhangMask.AsSpan(16 - advance);
+                        //var maskX = Vector128.Create(
+                        //    maskData[0], maskData[1], maskData[2], maskData[3], maskData[4], maskData[5], maskData[6], maskData[7],
+                        //    maskData[8], maskData[9], maskData[10], maskData[11], maskData[12], maskData[13], maskData[14], maskData[15])
+                        //    //.AsUInt16()
+                        //    ;
+                        var maskX = MemoryMarshal.Cast<byte, Vector128<byte>>(maskData)[0];
+
+                        testX = Sse2.And(maskX, testX);
+                        ContainsComplex = Sse2.Or(ContainsComplex, testX.AsByte());
+
+                        Count -= advance;
+                        Data = Data.Slice(advance);
+                        consumed += advance;
                         break;
                     }
-                    index++;
+
+                    ContainsComplex = Sse2.Or(ContainsComplex, testX.AsByte());
+                    Count -= 16;
+                    Data = Data.Slice(16);
+                    consumed += 16;
                 }
 
-                //Range = ConsumeCount(Range, Data - Range.Data);
-                Range = ConsumeCount(Range, index);
+                Range = ConsumeCount(Range, consumed);
+                //var ttt = Sse2.MoveMask(Vector128.Create((byte)128));
+                //var uuu = Sse2.MoveMask(ContainsComplex);
+                //var xxx = Sse2.SumAbsoluteDifferences(ContainsComplex, Vector128.Create((byte)0));
 
-                //Debug.WriteLine($"CurrentLineIndex {CurrentLineIndex}");
+                var c = Complex.ToScalar() > 0;
 
-                Lines[CurrentLineIndex].ContainsComplexChars |= ContainsComplex;
+
+                Lines[CurrentLineIndex].ContainsComplexChars |= c;
                 //_mm_movemask_epi8(ContainsComplex);
 
                 if (AtEscape(Range.Data.Span))
@@ -2039,6 +2097,39 @@ namespace Refterm
                     LineFeed(Range.AbsoluteP, Range.AbsoluteP, Cursor.Props);
                 }
             }
+        }
+
+        public int CountTrailingZeroBytes(byte[] packet)
+        {
+            var i = 0;
+            var length = packet.Length;
+            while (i < length)
+            {
+                if (packet[length - i - 1] != 0)
+                {
+                    return i;
+                }
+
+                i--;
+            }
+            return i;
+        }
+
+
+
+        public int CountTrailingZeroBytes(int value)
+        {
+            var i = 0;
+            while (i < 4)
+            {
+                if ((value >> (3 - i) & 0xff) != 0)
+                {
+                    return i;
+                }
+
+                i++;
+            }
+            return i;
         }
 
         static ulong GetLineLength(Line Line)
