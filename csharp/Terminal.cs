@@ -82,7 +82,9 @@ namespace Refterm
 
         GlyphTable GlyphTable;
 
-        char[] CommandLine = new char[256];
+        private char[] CommandLine = new char[256];
+        private char[] promptBuffer = new char[] { '>', ' ' };
+        private char[] cursorBuffer = null;
 
         static char[] DefaultSeed = new int[16]
             {
@@ -634,31 +636,47 @@ namespace Refterm
     CommandLineRange.Data = (char *)Terminal->CommandLine;
 #else
 #endif
-            char[] Prompt = new char[] { '>', ' ' };
-            SourceBufferRange PromptRange = new SourceBufferRange();
-            PromptRange.Count = (int)Prompt.Length;
-            PromptRange.Data = Prompt;
+            SourceBufferRange PromptRange = GetPromptBufferRange();
             ParseLineIntoGlyphs(ref PromptRange, Cursor, false);
 
             SourceBufferRange CommandLineRange = new SourceBufferRange();
             CommandLineRange.Count = (int)CommandLineCount;
-            CommandLineRange.Data = CommandLine;
+            CommandLineRange.Data = new Memory<char>(CommandLine, 0, CommandLineCount);
             ParseLineIntoGlyphs(ref CommandLineRange, Cursor, true);
 
-            var CursorCode = new char[] { '\x1b', '[', '5', 'm', (char)0xe2, (char)0x96, (char)0x88 }
-                .Select(x => (byte)x)
-                .ToArray();
-            SourceBufferRange CursorRange = new SourceBufferRange();
-            CursorRange.Count = (int)CursorCode.Length;
-            var c = new char[24];
-            Encoding.UTF8.GetChars(CursorCode, c);
-            CursorRange.Data = c;
+            SourceBufferRange CursorRange = GetCursorBufferRange();
             ParseLineIntoGlyphs(ref CursorRange, Cursor, true);
             AdvanceRowNoClear(Cursor.Position);
 
             RunningCursor.ClearCursor();
 
             ScreenBuffer.FirstLineY = CursorJumped ? 0 : Cursor.Position.Y;
+        }
+
+        private SourceBufferRange GetCursorBufferRange()
+        {
+            if (cursorBuffer is null)
+            {
+                var cursorCode = new char[] { '\x1b', '[', '5', 'm', (char)0xe2, (char)0x96, (char)0x88 }
+                                .Select(x => (byte)x)
+                                .ToArray();
+                cursorBuffer = Encoding.UTF8.GetChars(cursorCode);
+            }
+
+            var cursorBufferRange = new SourceBufferRange();
+            cursorBufferRange.Count = cursorBuffer.Length;
+            cursorBufferRange.Data = cursorBuffer;
+
+            return cursorBufferRange;
+        }
+
+        private SourceBufferRange GetPromptBufferRange()
+        {
+            var promptBufferRange = new SourceBufferRange();
+            promptBufferRange.Count = promptBuffer.Length;
+            promptBufferRange.Data = promptBuffer;
+
+            return promptBufferRange;
         }
 
         bool ParseLineIntoGlyphs(ref SourceBufferRange Range,
@@ -709,19 +727,28 @@ namespace Refterm
                     // Putting something actually good in here would probably be a massive improvement.
 
                     // NOTE(casey): Scan for the next escape code (which Uniscribe helpfully totally fails to handle)
-                    SourceBufferRange SubRange = Range;
-                    do
+
+                    //// NOTE(casey): Pass the range between the escape codes to Uniscribe
+
+                    var data = Range.Data.Span;
+                    var len = data.Length;
+                    var index = 1; // must read at least 1
+                    while (index < len)
                     {
-                        Range = ConsumeCount(Range, 1);
-                    } while (Range.Count > 0 &&
-                                (Range.Data.Span[0] != '\n') &&
-                                (Range.Data.Span[0] != '\r') &&
-                                (Range.Data.Span[0] != '\x1b'));
+                        var c = data[index];
+                        if (c == '\n' ||
+                            c == '\r' ||
+                            c == '\x1b')
+                        {
+                            break;
+                        }
 
+                        index++;
+                    }
 
-                    // NOTE(casey): Pass the range between the escape codes to Uniscribe
-                    SubRange.Count = (int)(Range.AbsoluteP - SubRange.AbsoluteP);
-                    ParseWithUniscribe(SubRange, Cursor);
+                    var subRange = new SourceBufferRange(Range, index);
+                    ParseWithUniscribe(subRange, Cursor);
+                    Range.Skip(subRange.Count);
                 }
                 else
                 {
@@ -1953,6 +1980,8 @@ namespace Refterm
                past that point.
             */
 
+            Range = new SourceBufferRange(Range);
+
             var Carriage = Vector128.Create((byte)'\n');
             var Escape = Vector128.Create((byte)'\x1b');
             //var Complex = Vector128.Create(1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128);
@@ -2059,7 +2088,7 @@ namespace Refterm
                     consumed += 16;
                 }
 
-                Range = ConsumeCount(Range, consumed);
+                ConsumeCount(Range, consumed);
                 //var ttt = Sse2.MoveMask(Vector128.Create((byte)128));
                 //var uuu = Sse2.MoveMask(ContainsComplex);
                 //var xxx = Sse2.SumAbsoluteDifferences(ContainsComplex, Vector128.Create((byte)0));
@@ -2266,7 +2295,7 @@ namespace Refterm
             if (Range.Count > 0)
             {
                 Result = ref Range.Data.Span[0];
-                Range = ConsumeCount(Range, 1);
+                ConsumeCount(Range, 1);
             }
 
             return ref Result;
@@ -2290,20 +2319,18 @@ namespace Refterm
             return Result;
         }
 
-        static SourceBufferRange ConsumeCount(SourceBufferRange Source, int Count)
+        static void ConsumeCount(SourceBufferRange Source, int Count)
         {
-            SourceBufferRange Result = new SourceBufferRange(Source);
+            //SourceBufferRange Result = new SourceBufferRange(Source);
 
-            if (Count > Result.Count)
+            if (Count > Source.Count)
             {
-                Count = Result.Count;
+                Count = Source.Count;
             }
 
-            Result.Data = Result.Data.Slice((int)Count);
-            Result.AbsoluteP += (ulong)Count;
-            Result.Count -= Count;
-
-            return Result;
+            Source.Data = Source.Data.Slice((int)Count);
+            Source.AbsoluteP += (ulong)Count;
+            Source.Count -= Count;
         }
 
         void CommitWrite(SourceBuffer Buffer, int Size)
