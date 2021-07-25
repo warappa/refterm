@@ -91,6 +91,8 @@ namespace Refterm
             .Select(x => (char)x)
             .ToArray();
 
+        bool shouldLayoutLines = true;
+
         public Terminal(IntPtr window)
         {
             this.threadHandle = (IntPtr)NativeWindows.GetCurrentThreadId();
@@ -196,22 +198,18 @@ namespace Refterm
                     {
                         DeallocateTerminalBuffer(ScreenBuffer);
                         ScreenBuffer = AllocateTerminalBuffer(NewDimX, NewDimY);
+
                     }
                 }
 
-                var queueCount = Math.Min(10 * 1024, outputTransfer.Count);
-                if (queueCount > 0 &&
-                    lastOutput.AddMilliseconds(16) < DateTime.UtcNow)
+                while(!shouldLayoutLines)
                 {
-                    lastOutput = DateTime.UtcNow;
-                    while (queueCount-- > 0 &&
-                        outputTransfer.TryDequeue(out var message))
+                    var ms = (DateTime.UtcNow - lastOutput).TotalMilliseconds;
+                    if (ms > BlinkMS)
                     {
-                        AppendOutput(message);
+                        shouldLayoutLines = true;
                     }
-                }
-                else
-                {
+
                     Thread.Sleep(16);
                 }
 
@@ -566,6 +564,7 @@ namespace Refterm
 
         void LayoutLines()
         {
+            shouldLayoutLines = false;
             // TODO(casey): Probably want to do something better here - this over-clears, since we clear
             // the whole thing and then also each line, for no real reason other than to make line wrapping
             // simpler.
@@ -609,8 +608,6 @@ namespace Refterm
                         CursorJumped = true;
                     }
 
-                    //var cc = Range.AbsoluteP + (ulong)Range.Count;
-                    //var cc = (int)(Line.OnePastLastP - (Range.AbsoluteP - (ulong)Range.Count));
                     var cc = Range.Count;
 
                     remaining = cc;
@@ -1425,6 +1422,8 @@ namespace Refterm
                 Result.DimY = DimY;
             }
 
+            shouldLayoutLines = true;
+
             return Result;
         }
 
@@ -1934,6 +1933,8 @@ namespace Refterm
 
                 remaining -= Dest.Count;
             }
+
+            shouldLayoutLines = true;
         }
 
         void ParseLines(SourceBufferRange Range, CursorState Cursor)
