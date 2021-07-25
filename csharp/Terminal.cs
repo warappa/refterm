@@ -36,7 +36,7 @@ namespace Refterm
         public String StandardError { get; set; }
         public uint DefaultForegroundColor { get; set; } = 0x00afafaf;
         public uint DefaultBackgroundColor { get; set; } = 0x000c0c0c;
-        public long PipeSize { get; set; } = 16 * 1024 * 1024;
+        public int PipeSize { get; set; } = 16 * 1024 * 1024;
 
         private IntPtr threadHandle;
         private IntPtr window;
@@ -594,11 +594,11 @@ namespace Refterm
 
                 var Line = Lines[LineIndex];
 
-                var remaining = Line.OnePastLastP - Line.FirstP;
+                var remaining = (int)(Line.OnePastLastP - Line.FirstP);
                 var consumed = 0;
                 while (remaining > 0)
                 {
-                    var Range = ReadSourceAt(ScrollBackBuffer, Line.FirstP + consumed, remaining);
+                    var Range = ReadSourceAt(ScrollBackBuffer, Line.FirstP + (ulong)consumed, remaining);
                     if (Range.Count == 0)
                     {
                         break;
@@ -609,10 +609,12 @@ namespace Refterm
                         CursorJumped = true;
                     }
 
-                    var cc = Range.AbsoluteP + Range.Count;
+                    //var cc = Range.AbsoluteP + (ulong)Range.Count;
+                    //var cc = (int)(Line.OnePastLastP - (Range.AbsoluteP - (ulong)Range.Count));
+                    var cc = Range.Count;
 
-                    remaining -= cc;
-                    consumed += cc;
+                    remaining = cc;
+                    consumed = cc;
                 }
             }
 
@@ -636,12 +638,12 @@ namespace Refterm
 #endif
             char[] Prompt = new char[] { '>', ' ' };
             SourceBufferRange PromptRange = new SourceBufferRange();
-            PromptRange.Count = Prompt.Length;
+            PromptRange.Count = (int)Prompt.Length;
             PromptRange.Data = Prompt;
             ParseLineIntoGlyphs(ref PromptRange, Cursor, false);
 
             SourceBufferRange CommandLineRange = new SourceBufferRange();
-            CommandLineRange.Count = CommandLineCount;
+            CommandLineRange.Count = (int)CommandLineCount;
             CommandLineRange.Data = CommandLine;
             ParseLineIntoGlyphs(ref CommandLineRange, Cursor, true);
 
@@ -649,7 +651,7 @@ namespace Refterm
                 .Select(x => (byte)x)
                 .ToArray();
             SourceBufferRange CursorRange = new SourceBufferRange();
-            CursorRange.Count = CursorCode.Length;
+            CursorRange.Count = (int)CursorCode.Length;
             var c = new char[24];
             Encoding.UTF8.GetChars(CursorCode, c);
             CursorRange.Data = c;
@@ -668,9 +670,11 @@ namespace Refterm
 
             while (Range.Count > 0)
             {
+                var span = Range.Data.Span;
+
                 // NOTE(casey): Eat all non-Unicode
-                char Peek = PeekToken(Range, 0);
-                if ((Peek == '\x1b') && AtEscape(Range))
+                char Peek = PeekToken(span, 0);
+                if ((Peek == '\x1b') && AtEscape(span))
                 {
                     if (ParseEscape(ref Range, Cursor))
                     {
@@ -718,7 +722,7 @@ namespace Refterm
 
 
                     // NOTE(casey): Pass the range between the escape codes to Uniscribe
-                    SubRange.Count = Range.AbsoluteP - SubRange.AbsoluteP;
+                    SubRange.Count = (int)(Range.AbsoluteP - SubRange.AbsoluteP);
                     ParseWithUniscribe(SubRange, Cursor);
                 }
                 else
@@ -979,7 +983,7 @@ namespace Refterm
             //            UTF8Range.Count);
             //    }
             //}
-            var spanBytes = MemoryMarshal.Cast<char, byte>(UTF8Range.Data.Span.Slice(0, UTF8Range.Count));
+            var spanBytes = MemoryMarshal.Cast<char, byte>(UTF8Range.Data.Span.Slice(0, (int)UTF8Range.Count));
 
             //var utf8String = new string(UTF8Range.Data.Span.Slice(0, UTF8Range.Count));
             //var unicodeBytes = Encoding.Convert(Encoding.UTF8, Encoding.Unicode, spanBytes.ToArray());
@@ -989,7 +993,7 @@ namespace Refterm
 
             var unicodeString = Encoding.Unicode.GetString(spanBytes);
             //unicodeBytes.CopyTo(Partitioner.Expansion, unicodeBytes.Length);
-            UTF8Range.Data.Span.Slice(0, UTF8Range.Count)
+            UTF8Range.Data.Span.Slice(0, (int)UTF8Range.Count)
                 .CopyTo(Partitioner.Expansion.AsSpan());
 
             var Count = unicodeString.Length;
@@ -1371,21 +1375,21 @@ namespace Refterm
             Buffer.ClearLine(Y);
         }
 
-        static SourceBufferRange ReadSourceAt(SourceBuffer Buffer, int AbsoluteP, int Count)
+        static SourceBufferRange ReadSourceAt(SourceBuffer Buffer, ulong AbsoluteP, int Count)
         {
             SourceBufferRange Result = new SourceBufferRange();
             if (IsInBuffer(Buffer, AbsoluteP))
             {
-                var relativePosition = AbsoluteP % Buffer.DataSize;
+                int relativePosition = (int)(AbsoluteP % (ulong)Buffer.DataSize);
 
                 Result.AbsoluteP = AbsoluteP;
-                Result.Count = Math.Min(Count, Buffer.AbsoluteFilledSize - AbsoluteP);
+                Result.Count = (int)Math.Min((ulong)Count, Buffer.AbsoluteFilledSize - AbsoluteP);
 
-                var availableInRestBuffer = Buffer.DataSize - relativePosition;
+                var availableInRestBuffer = Buffer.DataSize - (uint)relativePosition;
 
                 if (Result.Count > availableInRestBuffer)
                 {
-                    Result.Count = availableInRestBuffer;
+                    Result.Count = (int)availableInRestBuffer;
                     if (Result.Count == 0)
                     {
                         Buffer.RelativePoint = 0;
@@ -1393,17 +1397,17 @@ namespace Refterm
                     }
                 }
 
-                Result.Data = Buffer.Data.Slice(relativePosition, Result.Count);
+                Result.Data = Buffer.Data.Slice(relativePosition, (int)Result.Count);
             }
 
             return Result;
         }
 
-        static bool IsInBuffer(SourceBuffer Buffer, int AbsoluteP)
+        static bool IsInBuffer(SourceBuffer Buffer, ulong AbsoluteP)
         {
             var BackwardOffset = Buffer.AbsoluteFilledSize - AbsoluteP;
             var Result = ((AbsoluteP < Buffer.AbsoluteFilledSize) &&
-                          (BackwardOffset < Buffer.DataSize));
+                          (BackwardOffset < (ulong)Buffer.DataSize));
             return Result;
         }
 
@@ -1916,7 +1920,7 @@ namespace Refterm
 
         void AppendOutput(ReadOnlySpan<char> data)
         {
-            var remaining = data.Length;
+            var remaining = (int)data.Length;
             while (remaining > 0)
             {
                 var Dest = GetNextWritableRange(ScrollBackBuffer, remaining);
@@ -1961,7 +1965,7 @@ namespace Refterm
                 }
 
                 var Data = Range.Data.Span;
-                var index = 0;
+                int index = 0;
                 var testC = false;
                 var testE = false;
                 var testX = false;
@@ -2007,9 +2011,9 @@ namespace Refterm
                 Lines[CurrentLineIndex].ContainsComplexChars |= ContainsComplex;
                 //_mm_movemask_epi8(ContainsComplex);
 
-                if (AtEscape(Range))
+                if (AtEscape(Range.Data.Span))
                 {
-                    int FeedAt = Range.AbsoluteP;
+                    var FeedAt = Range.AbsoluteP;
                     if (ParseEscape(ref Range, Cursor))
                     {
                         LineFeed(FeedAt, FeedAt, Cursor.Props);
@@ -2029,21 +2033,21 @@ namespace Refterm
                 }
 
                 UpdateLineEnd(Range.AbsoluteP);
-                if (GetLineLength(Lines[CurrentLineIndex]) > SplitLineAtCount)
+                if (GetLineLength(Lines[CurrentLineIndex]) > (ulong)SplitLineAtCount)
                 {
                     LineFeed(Range.AbsoluteP, Range.AbsoluteP, Cursor.Props);
                 }
             }
         }
 
-        static int GetLineLength(Line Line)
+        static ulong GetLineLength(Line Line)
         {
             //Assert(Line->OnePastLastP >= Line->FirstP);
             var Result = Line.OnePastLastP - Line.FirstP;
             return Result;
         }
 
-        void LineFeed(int AtP, int NextLineStart, GlyphProps AtProps)
+        void LineFeed(ulong AtP, ulong NextLineStart, GlyphProps AtProps)
         {
             UpdateLineEnd(AtP);
             ++CurrentLineIndex;
@@ -2064,7 +2068,7 @@ namespace Refterm
             }
         }
 
-        void UpdateLineEnd(int ToP)
+        void UpdateLineEnd(ulong ToP)
         {
             Lines[CurrentLineIndex].OnePastLastP = ToP;
         }
@@ -2082,7 +2086,7 @@ namespace Refterm
 
             while ((ParamCount < Params.Length) && Range.Count > 0)
             {
-                char Token = PeekToken(Range, 0);
+                char Token = PeekToken(Range.Data.Span, 0);
                 if (IsDigit(Token))
                 {
                     Params[ParamCount++] = ParseNumber(ref Range);
@@ -2148,7 +2152,7 @@ namespace Refterm
         static uint ParseNumber(ref SourceBufferRange Range)
         {
             uint Result = 0;
-            while (IsDigit(PeekToken(Range, 0)))
+            while (IsDigit(PeekToken(Range.Data.Span, 0)))
             {
                 char Token = GetToken(ref Range);
                 Result = (uint)(10 * Result + (Token - '0'));
@@ -2176,19 +2180,19 @@ namespace Refterm
             return ref Result;
         }
 
-        static bool AtEscape(SourceBufferRange Range)
+        static bool AtEscape(Span<char> span)
         {
-            var Result = ((PeekToken(Range, 0) == '\x1b') &&
-                          (PeekToken(Range, 1) == '['));
+            var Result = PeekToken(span, 0) == '\x1b' &&
+                         PeekToken(span, 1) == '[';
             return Result;
         }
-        static char PeekToken(SourceBufferRange Range, int Ordinal)
+        static char PeekToken(Span<char> span, int Ordinal)
         {
             char Result = (char)0;
 
-            if (Ordinal < Range.Count)
+            if (Ordinal < span.Length)
             {
-                Result = Range.Data.Span[Ordinal];
+                Result = span[Ordinal];
             }
 
             return Result;
@@ -2203,8 +2207,8 @@ namespace Refterm
                 Count = Result.Count;
             }
 
-            Result.Data = Result.Data.Slice(Count);
-            Result.AbsoluteP += Count;
+            Result.Data = Result.Data.Slice((int)Count);
+            Result.AbsoluteP += (ulong)Count;
             Result.Count -= Count;
 
             return Result;
@@ -2216,10 +2220,10 @@ namespace Refterm
             //Assert(Size <= Buffer->DataSize);
 
             Buffer.RelativePoint += Size;
-            Buffer.AbsoluteFilledSize += Size;
+            Buffer.AbsoluteFilledSize += (ulong)Size;
 
             var WrappedRelative = Buffer.RelativePoint - Buffer.DataSize;
-            Buffer.RelativePoint = (Buffer.RelativePoint >= Buffer.DataSize) ? WrappedRelative : Buffer.RelativePoint;
+            Buffer.RelativePoint = (Buffer.RelativePoint >= Buffer.DataSize) ? (int)WrappedRelative : Buffer.RelativePoint;
 
             //Assert(Buffer.RelativePoint < Buffer.DataSize);
         }
@@ -2230,7 +2234,7 @@ namespace Refterm
 
             var Result = new SourceBufferRange();
             Result.AbsoluteP = Buffer.AbsoluteFilledSize;
-            Result.Count = Math.Min(MaxCount, Buffer.DataSize - Buffer.RelativePoint);
+            Result.Count = Math.Min(MaxCount, (int)(Buffer.DataSize - Buffer.RelativePoint));
 
             if (Result.Count <= 0)
             {
@@ -2238,10 +2242,10 @@ namespace Refterm
 
                 Buffer.Data = new Memory<char>(Buffer.InternalData);
 
-                Result.Count = Math.Min(Result.Count, Buffer.Data.Length);
+                Result.Count = Math.Min(Result.Count, (int)Buffer.Data.Length);
             }
 
-            Result.Data = Buffer.Data.Slice(Buffer.RelativePoint, Result.Count);
+            Result.Data = Buffer.Data.Slice((int)Buffer.RelativePoint, (int)Result.Count);
 
             return Result;
         }
@@ -2470,18 +2474,18 @@ namespace Refterm
             RequestedFontHeight = 17;
         }
 
-        private SourceBuffer AllocateSourceBuffer(long dataSize)
+        private SourceBuffer AllocateSourceBuffer(int dataSize)
         {
             SourceBuffer result = new SourceBuffer();
 
             SYSTEM_INFO info = new SYSTEM_INFO();
             NativeWindows.GetSystemInfo(ref info);
 
-            dataSize = (dataSize + info.dwAllocationGranularity - 1) & ~(info.dwAllocationGranularity - 1);
+            dataSize = (int)((dataSize + info.dwAllocationGranularity - 1) & ~(info.dwAllocationGranularity - 1));
 
             result.InternalData = new char[dataSize];
             result.Data = new Memory<char>(result.InternalData);
-            result.DataSize = (int)dataSize;
+            result.DataSize = dataSize;
 
             return result;
         }

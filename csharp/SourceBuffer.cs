@@ -16,7 +16,7 @@ namespace Refterm
         public int RelativePoint;
 
         // NOTE(casey): For cache checking
-        public int AbsoluteFilledSize;
+        public ulong AbsoluteFilledSize;
 
         public char[] InternalData { get; internal set; }
 

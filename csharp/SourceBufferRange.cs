@@ -16,7 +16,7 @@ namespace Refterm
             Data = source.Data;
         }
 
-        public int AbsoluteP;
+        public ulong AbsoluteP;
         public int Count;
         public Memory<char> Data;
     }

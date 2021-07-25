@@ -2,8 +2,8 @@
 {
     public class Line
     {
-        public int FirstP;
-        public int OnePastLastP;
+        public ulong FirstP;
+        public ulong OnePastLastP;
         public bool ContainsComplexChars;
         public GlyphProps StartingProps = new GlyphProps();
 
