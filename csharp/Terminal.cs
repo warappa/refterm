@@ -12,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Text;
@@ -400,33 +401,12 @@ namespace Refterm
                     var BottomCellCount = Term.DimX * (Term.FirstLineY);
                     //Assert((TopCellCount + BottomCellCount) == (Term.DimX * Term.DimY));
 
-                    var termCellsSpan = Term.Cells.AsSpan();
-                    var termCellsFirstCopy = Term.Cells.AsSpan(
+                    Cells.WriteRange(
+                        Term.Cells,
                         (int)(Term.FirstLineY * Term.DimX),
                         (int)(TopCellCount));
 
-                    unsafe
-                    {
-                        var cellSpan =
-                            new Span<RendererCell>(
-                            Cells.DataPointer.ToPointer(),
-                            (int)Cells.Length / Marshal.SizeOf<RendererCell>());
-
-                        var targetCellSpan = cellSpan.Slice((int)TopCellCount);
-
-                        termCellsFirstCopy.CopyTo(cellSpan);
-
-                        termCellsSpan.Slice(0, (int)BottomCellCount).CopyTo(targetCellSpan);
-                    }
-                    //using (var pin = Term.Cells.AsMemory().Pin()) {
-                    //    System.Buffer.MemoryCopy(pin.Pointer, 
-
-                    //    Cells.WriteRange(.Pointer, (int)(TopCellCount * typeof(RendererCell).StructLayoutAttribute.Size)));
-                    //    termSpan.CopyTo()
-
-                    //memcpy(Cells, Term.Cells + Term.FirstLineY * Term.DimX, TopCellCount * sizeof(renderer_cell));
-                    //    memcpy(Cells + TopCellCount, Term.Cells, BotCellCount * sizeof(renderer_cell));
-                    //}
+                    Cells.WriteRange(Term.Cells, 0, (int)BottomCellCount);
                 }
                 Renderer.DeviceContext.UnmapSubresource(Renderer.CellBuffer, 0);
 
@@ -460,19 +440,6 @@ namespace Refterm
 
             var Vsync = false;
             var presentResult = Renderer.SwapChain.Present(Vsync ? 1 : 0, PresentFlags.None);
-
-
-            if (false)
-            {
-
-                //var dev = new DeviceManager();
-                //dev.Initialize(96);
-                //using var a = Renderer.SwapChain.GetBackBuffer<Texture2D>(0);
-                //a.Save(File.OpenWrite(@"c:\Temp\buffer.jpg"), Renderer.Device, Renderer.DeviceContext1, new ImagingFactory2());
-
-                Renderer.GlyphTexture.Save(File.OpenWrite(@"c:\Temp\buffer.jpg"), Renderer.Device, Renderer.DeviceContext, new ImagingFactory2());
-            }
-
 
             //hr = IDXGISwapChain1_Present(Renderer.SwapChain, Vsync ? 1 : 0, 0);
             if ((presentResult == SharpDX.DXGI.ResultCode.DeviceReset) ||
@@ -771,7 +738,7 @@ namespace Refterm
                         else
                         {
                             //Assert(CodePoint <= 127);
-                            GlyphHash RunHash = ComputeGlyphHash(2, CodePoint.ToString(), DefaultSeed);
+                            GlyphHash RunHash = ComputeGlyphHash(2, CodePoint, DefaultSeed);
                             GlyphState State = FindGlyphEntryByHash(GlyphTable, RunHash);
 
 
@@ -946,71 +913,35 @@ namespace Refterm
             //}
         }
 
-        static GlyphHash ComputeGlyphHash(int Count, string At, char[] Seedx16)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static GlyphHash ComputeGlyphHash(int Count, char At, char[] Seedx16)
         {
-            var code = HashCode.Combine(Count, At.GetHashCode());
+            var code = HashCode.Combine(Count, At);
+
             return new GlyphHash
             {
                 Value = code
             };
-            //            /* TODO(casey):
+        }
 
-            //              Consider and test some alternate hash designs.  The hash here
-            //              was the simplest thing to type in, but it is not necessarily
-            //              the best hash for the job.  It may be that less AES rounds 
-            //              would produce equivalently collision-free results for the
-            //              problem space.  It may be that non-AES hashing would be
-            //              better.  Some careful analysis would be nice.
-            //            */
+        static GlyphHash ComputeGlyphHash(int Count, ReadOnlySpan<char> At, char[] Seedx16)
+        {
+            var len = At.Length;
+            if (len == 0)
+            {
+                return ComputeGlyphHash(Count, At, Seedx16);
+            }
 
-            //            // TODO(casey): Does the result of a grapheme composition
-            //            // depend on whether or not it was RTL or LTR?  Or are there
-            //            // no fonts that ever get used in both directions, so it doesn't
-            //            // matter?
+            int code = 0;
+            for (var i = 0; i < len; i++)
+            {
+                code = HashCode.Combine(Count, code, At[i]);
+            }
 
-            //            // TODO(casey): Double-check exactly the pattern
-            //            // we want to use for the hash here
-
-            //            GlyphHash Result = new GlyphHash();
-
-            //            // TODO(casey): Should there be an IV?
-            //            __m128i HashValue = _mm_cvtsi64_si128(Count);
-            //            HashValue = _mm_xor_si128(HashValue, _mm_loadu_si128((__m128i*)Seedx16));
-
-            //            var ChunkCount = Count / 16;
-            //            while (ChunkCount-- > 0)
-            //            {
-            //                __m128i In = _mm_loadu_si128((__m128i*)At);
-
-            //                HashValue = _mm_xor_si128(HashValue, In);
-            //                HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //                HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //                HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //                HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //            }
-
-            //            var Overhang = Count % 16;
-
-
-            //#if 0
-            //    __m128i In = _mm_loadu_si128((__m128i *)At);
-            //#else
-            //            // TODO(casey): This needs to be improved - it's too slow, and the #if 0 branch would be nice but can't
-            //            // work because of overrun, etc.
-            //            char Temp[16];
-            //            __movsb((unsigned char *)Temp, At, Overhang);
-            //            __m128i In = _mm_loadu_si128((__m128i*)Temp);
-            //#endif
-            //            In = _mm_and_si128(In, _mm_loadu_si128((__m128i*)(OverhangMask + 16 - Overhang)));
-            //            HashValue = _mm_xor_si128(HashValue, In);
-            //            HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //            HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //            HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-            //            HashValue = _mm_aesdec_si128(HashValue, _mm_setzero_si128());
-
-            //            Result.Value = HashValue;
-
-            //            return Result;
+            return new GlyphHash
+            {
+                Value = code
+            };
         }
 
         void ParseWithUniscribe(SourceBufferRange UTF8Range, CursorState Cursor)
@@ -1157,7 +1088,7 @@ namespace Refterm
                             // It should save the entry somehow, and roll it into the first cell.
 
                             var Prepped = false;
-                            GlyphHash RunHash = ComputeGlyphHash(2 * ThisCount, new string(Run), DefaultSeed);
+                            GlyphHash RunHash = ComputeGlyphHash(2 * ThisCount, Run, DefaultSeed);
                             GlyphDim GlyphDim = GetGlyphDim(GlyphGen, GlyphTable, ThisCount, new string(Run), RunHash);
                             for (var TileIndex = 0u;
                                 TileIndex < GlyphDim.TileCount;
@@ -1218,7 +1149,7 @@ namespace Refterm
             //return Result;
         }
 
-        GlyphDim GetGlyphDim(GlyphGenerator GlyphGen, GlyphTable Table, int Count, string String, GlyphHash RunHash)
+        GlyphDim GetGlyphDim(GlyphGenerator GlyphGen, GlyphTable Table, int Count, ReadOnlySpan<char> String, GlyphHash RunHash)
         {
             /* TODO(casey): Windows can only 2^31 glyph runs - which
                seems fine, but... technically Unicode can have more than two
@@ -1265,11 +1196,11 @@ namespace Refterm
             return Result;
         }
 
-        SIZE DWriteGetTextExtent(GlyphGenerator GlyphGen, int StringLen, string String)
+        SIZE DWriteGetTextExtent(GlyphGenerator GlyphGen, int StringLen, ReadOnlySpan<char> String)
         {
-            SIZE Result = new SIZE();
+            var Result = new SIZE();
 
-            using var Layout = new TextLayout(GlyphGen.DWriteFactory, String, GlyphGen.TextFormat, GlyphGen.TransferWidth, GlyphGen.TransferHeight);
+            using var Layout = new TextLayout(GlyphGen.DWriteFactory, new string(String), GlyphGen.TextFormat, GlyphGen.TransferWidth, GlyphGen.TransferHeight);
 
             if (Layout is not null)
             {
@@ -2042,7 +1973,6 @@ namespace Refterm
                     testX |= c == (char)0x80;
                     var test = testC || testE || testX;
 
-
                     //__m128i Batch = _mm_loadu_si128((__m128i*)Data);
                     //__m128i TestC = _mm_cmpeq_epi8(Batch, Carriage);
                     //__m128i TestE = _mm_cmpeq_epi8(Batch, Escape);
@@ -2302,13 +2232,6 @@ namespace Refterm
             Result.AbsoluteP = Buffer.AbsoluteFilledSize;
             Result.Count = Math.Min(MaxCount, Buffer.DataSize - Buffer.RelativePoint);
 
-            Result.Data = Buffer.Data.Slice(Buffer.RelativePoint);
-
-            if (Result.Count + Buffer.RelativePoint == Buffer.DataSize)
-            {
-
-            }
-            //if (Buffer.RelativePoint + Result.Count > Buffer.Data.Length)
             if (Result.Count <= 0)
             {
                 Buffer.RelativePoint = 0;
@@ -2317,6 +2240,8 @@ namespace Refterm
 
                 Result.Count = Math.Min(Result.Count, Buffer.Data.Length);
             }
+
+            Result.Data = Buffer.Data.Slice(Buffer.RelativePoint, Result.Count);
 
             return Result;
         }
