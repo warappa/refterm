@@ -5,8 +5,11 @@ using SharpDX.Direct3D11;
 using SharpDX.DirectWrite;
 using SharpDX.DXGI;
 using System;
+using System.Buffers;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -1536,6 +1539,42 @@ namespace Refterm
             else if (command == "")
             {
             }
+            else if (command == "type")
+            {
+                var param = new string(commandLine.AsSpan(paramStart).ToArray().TakeWhile(x => x != '\0').ToArray());
+                if (File.Exists(param))
+                {
+
+                    _ = Task.Run(() =>
+                    {
+                        var stopwatch = new Stopwatch();
+                        stopwatch.Start();
+
+                        var fileLength = 0L;
+                        using (var stream = File.OpenRead(param))
+                        {
+                            var buffer = new byte[4 * 1024];
+                            var bufferSpan = buffer.AsSpan();
+                            int read;
+                            Encoding encoding = null;
+                            do
+                            {
+                                read = ReadStreamToOutput(stream, bufferSpan, ref encoding);
+                                fileLength += read;
+                            } while (read != 0);
+                        }
+
+                        stopwatch.Stop();
+
+                        var seconds = stopwatch.ElapsedMilliseconds / 1000d;
+                        AppendOutput($"\n\nTotal time: {seconds}s ({(fileLength / (1024d * 1024d * 1024d)) / seconds:0.000}GB/s)");
+                    });
+                }
+                else
+                {
+                    AppendOutput("File does not exist");
+                }
+            }
             else
             {
                 var extension = "";
@@ -1629,10 +1668,10 @@ namespace Refterm
 
                 var token = childProcessCancellationTokenSource.Token;
                 var buffer = new byte[4 * 1024];
-                var detectedEncoding = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
-                var offset = 0;
 
                 var stream = childProcess.StandardOutput.BaseStream;
+                Encoding encoding = null;
+                var fallbackEncoding = childProcess.StandardOutput.CurrentEncoding;
 
                 while (!token.IsCancellationRequested)
                 {
@@ -1641,32 +1680,7 @@ namespace Refterm
                         var read = 0;
                         do
                         {
-                            read = stream
-                                .Read(buffer, offset, buffer.Length - offset);
-
-                            if (read > 0)
-                            {
-                                if (detectedEncoding is null)
-                                {
-                                    detectedEncoding = TryDetectEncoding(encoding, buffer, read);
-                                }
-
-                                if (detectedEncoding is not null)
-                                {
-                                    var outputString = detectedEncoding.GetChars(buffer, 0, offset + read);
-
-                                    if (syncObj?.InvokeRequired == true)
-                                    {
-                                        syncObj.Invoke((Action<char[]>)(o => AppendOutput(o)), new[] { outputString });
-                                    }
-                                    else
-                                    {
-                                        AppendOutput(outputString);
-                                    }
-
-                                    offset = 0;
-                                }
-                            }
+                            read = ReadStreamToOutput(stream, buffer, ref encoding, fallbackEncoding, syncObj);
                         }
                         while (read > 0 &&
                             !token.IsCancellationRequested);
@@ -1690,34 +1704,60 @@ namespace Refterm
             return true;
         }
 
-        private static Encoding TryDetectEncoding(Encoding encoding, byte[] buffer, int read)
+        private int ReadStreamToOutput(Stream stream, Span<byte> buffer, ref Encoding? encoding, Encoding? fallbackEncoding = null, ISynchronizeInvoke syncObj = null)
         {
-            Encoding detectedEncoding;
+            var read = stream
+                .Read(buffer);
 
-            var nullCount = 0f;
-            var maxCheck = Math.Min(read, 256);
-            for (var i = 1; i < maxCheck; i += 2)
+            if (read > 0)
             {
-                var value = buffer[i];
-                if (value == 0)
+                if (encoding is null)
                 {
-                    nullCount++;
+                    encoding = TryDetectEncoding(fallbackEncoding, buffer, read);
+                }
+
+                if (encoding is not null)
+                {
+                    var readOnly = (ReadOnlySpan<byte>)buffer.Slice(0, read);
+
+                    var converterBuffer = ArrayPool<char>.Shared.Rent(5 * buffer.Length);
+                    var convertedBufferSpan = converterBuffer.AsSpan();
+
+                    var charCount = encoding.GetChars(readOnly, convertedBufferSpan);
+                    var convertedSpan = convertedBufferSpan.Slice(0, charCount);
+
+                    if (syncObj?.InvokeRequired == true)
+                    {
+                        syncObj.Invoke((Action<string>)(o => AppendOutput(o)), new object[] { new string(convertedSpan) });
+                    }
+                    else
+                    {
+                        AppendOutput(convertedSpan);
+                    }
+
+                    ArrayPool<char>.Shared.Return(converterBuffer);
                 }
             }
 
-            if ((nullCount * 2) / maxCheck > 0.5 ||
-                (maxCheck >= 2 && buffer[0] == 255 && buffer[1] == 254))
+            return read;
+        }
+
+        private static Encoding TryDetectEncoding(Encoding fallbackEncoding, ReadOnlySpan<byte> buffer, int read)
+        {
+            Encoding detectedEncoding;
+
+            if (read >= 2 && buffer[0] == 255 && buffer[1] == 254)
             {
                 detectedEncoding = Encoding.Unicode;
             }
-            else if (maxCheck >= 3 &&
+            else if (read >= 3 &&
                 buffer[0] == 239 && buffer[1] == 187 && buffer[2] == 191)
             {
                 detectedEncoding = Encoding.UTF8;
             }
             else
             {
-                detectedEncoding = encoding;
+                detectedEncoding = fallbackEncoding ?? Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
             }
 
             return detectedEncoding;
@@ -2068,7 +2108,7 @@ namespace Refterm
             return PeekToken(span, 0) == '\x1b' &&
                    PeekToken(span, 1) == '[';
         }
-        
+
         private static char PeekToken(Span<char> span, int ordinal)
         {
             var Result = (char)0;
