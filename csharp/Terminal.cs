@@ -531,7 +531,7 @@ namespace Refterm
             var cursor = new CursorState(this);
             cursor.ClearCursor();
 
-            for (var lineIndexIndex = 0; lineIndexIndex < lineCount; ++lineIndexIndex)
+            for (var lineIndexIndex = 0; lineIndexIndex <= lineCount; ++lineIndexIndex)
             {
                 var lineIndex = (lineOffset + lineIndexIndex) % maxLineCount;
                 if (lineIndex < 0)
